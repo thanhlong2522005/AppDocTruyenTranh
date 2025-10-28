@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -57,7 +58,23 @@ val mockSearchResults = listOf(
 @Composable
 fun SearchScreen(navController: NavHostController) {
     Scaffold(
-        topBar = { AppHeader() },
+        topBar = {
+            AppHeader(
+                navigationIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Icon quay lại
+                        contentDescription = "Quay lại",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .padding(16.dp)
+                            .clickable {
+                                navController.popBackStack() // Hành động quay lại
+                            }
+                    )
+                }
+            )
+        },
         bottomBar = { AppBottomNavigationBar(navController = navController) }
     ) { paddingValues ->
         Column(

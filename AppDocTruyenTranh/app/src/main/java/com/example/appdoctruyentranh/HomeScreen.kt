@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 // Các components và data classes dùng chung được truy cập tự động
+// (Giả định AppHeader, AppBottomNavigationBar, PrimaryColor, Story, StoryItem nằm trong AppComponents.kt)
 
 // --- Constants và Data Model Riêng ---
 val BannerHeight = 200.dp
@@ -79,7 +80,10 @@ fun HomeScreenContent(navController: NavHostController) {
             item {
                 HomeBannerCarousel(
                     banners = mockBanners,
-                    onBannerClick = { /* Xử lý điều hướng */ }
+                    onBannerClick = { bannerItem ->
+                        // SỬA: Điều hướng đến màn hình chi tiết khi nhấn Banner
+                        navController.navigate("manga_detail/${bannerItem.id}")
+                    }
                 )
             }
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -89,7 +93,10 @@ fun HomeScreenContent(navController: NavHostController) {
                 StorySection(
                     title = "Mới Cập Nhật",
                     stories = mockStories.subList(0, 4),
-                    onStoryClick = { /* Xử lý điều hướng */ }
+                    onStoryClick = { story ->
+                        // SỬA: Điều hướng đến màn hình chi tiết khi nhấn Truyện
+                        navController.navigate("manga_detail/${story.id}")
+                    }
                 )
             }
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -99,7 +106,10 @@ fun HomeScreenContent(navController: NavHostController) {
                 StorySection(
                     title = "Xem Nhiều Nhất",
                     stories = mockStories.subList(4, 8),
-                    onStoryClick = { /* Xử lý điều hướng */ }
+                    onStoryClick = { story ->
+                        // SỬA: Điều hướng đến màn hình chi tiết khi nhấn Truyện
+                        navController.navigate("manga_detail/${story.id}")
+                    }
                 )
             }
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -109,7 +119,10 @@ fun HomeScreenContent(navController: NavHostController) {
                 StorySection(
                     title = "Truyện Hoàn Thành",
                     stories = mockStories.subList(0, 4),
-                    onStoryClick = { /* Xử lý điều hướng */ }
+                    onStoryClick = { story ->
+                        // SỬA: Điều hướng đến màn hình chi tiết khi nhấn Truyện
+                        navController.navigate("manga_detail/${story.id}")
+                    }
                 )
             }
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -151,6 +164,7 @@ fun HomeBannerCarousel(banners: List<BannerItem>, onBannerClick: (BannerItem) ->
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             itemsIndexed(banners) { index: Int, item: BannerItem ->
+                // THAY ĐỔI: Gọi onBannerClick với item
                 BannerItemCard(item = item, onClick = { onBannerClick(item) })
             }
         }
@@ -259,6 +273,7 @@ fun StorySection(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(stories) { story: Story ->
+                // THAY ĐỔI: Gọi onStoryClick với story
                 StoryItem(story = story) {
                     onStoryClick(story)
                 }

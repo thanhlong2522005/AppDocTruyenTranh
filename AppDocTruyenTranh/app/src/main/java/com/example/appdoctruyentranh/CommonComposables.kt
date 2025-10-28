@@ -242,7 +242,7 @@ fun AppBottomNavigationBar(navController: NavHostController) {
             BottomNavItem("genre", Icons.Default.Menu, "Danh mục"),
             BottomNavItem("search", Icons.Default.Search, "Tìm kiếm"),
             BottomNavItem("favorite", Icons.Default.Favorite, "Yêu thích"),
-            BottomNavItem("profile", Icons.Default.Person, "Cá nhân")
+            BottomNavItem("history", Icons.Default.Person, "Cá nhân")
         )
 
         items.forEach { item ->
