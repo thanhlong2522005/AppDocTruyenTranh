@@ -34,6 +34,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
+import com.example.appdoctruyentranh.model.Story
 @Composable
 fun CustomTextField(
     value: String,

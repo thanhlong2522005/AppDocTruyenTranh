@@ -25,7 +25,6 @@ import com.example.appdoctruyentranh.FavoriteScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Bước 1: Kích hoạt Splash Screen (từ Bước 2)
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
