@@ -32,13 +32,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.AppBottomNavigationBar
-import com.example.appdoctruyentranh.PrimaryColor
-import com.example.appdoctruyentranh.TextPrimary
-import com.example.appdoctruyentranh.TextSecondary
-
+// Import cần thiết
+// import com.example.appdoctruyentranh.PrimaryColor
 
 // ------------------------------------------------------------------------
-// DỮ LIỆU MẪU
+// DỮ LIỆU MẪU (Sử dụng lại Data Class Story đã cập nhật từ CommonComposables)
 // ------------------------------------------------------------------------
 
 val TextPrimary = Color(0xFF212121)
@@ -83,6 +81,8 @@ val mockMangaDetail = MangaDetail(
 fun MangaDetailScreen(navController: NavHostController, mangaId: Int = 1) {
     val tabs = listOf("Thông tin", "Chương")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    // Lấy chi tiết truyện (tạm thời dùng mock)
+    val detail = mockMangaDetail.copy(id = mangaId)
 
     Scaffold(
         topBar = {
@@ -109,7 +109,7 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: Int = 1) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            item { DetailSummarySection(detail = mockMangaDetail) }
+            item { DetailSummarySection(detail = detail) }
 
             stickyHeader {
                 TabRow(
@@ -129,8 +129,12 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: Int = 1) {
 
             item {
                 when (selectedTabIndex) {
-                    0 -> InfoTabContent(detail = mockMangaDetail)
-                    1 -> ChapterTabContent(chapters = mockMangaDetail.chapters)
+                    0 -> InfoTabContent(detail = detail)
+                    1 -> ChapterTabContent(
+                        mangaId = detail.id, // Truyền ID truyện vào
+                        chapters = detail.chapters,
+                        navController = navController
+                    )
                 }
             }
         }
@@ -293,12 +297,15 @@ fun InfoTabContent(detail: MangaDetail) {
 }
 
 @Composable
-fun ChapterTabContent(chapters: List<Chapter>) {
+fun ChapterTabContent(mangaId: Int, chapters: List<Chapter>, navController: NavHostController) {
     LazyColumn(
         modifier = Modifier.height(500.dp)
     ) {
         items(chapters) { chapter ->
-            ChapterItem(chapter = chapter) { /* Mở chương */ }
+            ChapterItem(chapter = chapter) {
+                // SỬA: Điều hướng đến màn hình đọc truyện
+                navController.navigate("read/$mangaId/${chapter.id}")
+            }
             Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
         }
     }

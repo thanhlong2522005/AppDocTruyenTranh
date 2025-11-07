@@ -105,6 +105,36 @@ fun AppNavigation() {
             MangaDetailScreen(navController = navController, mangaId = mangaId)
         }
 
+        // ----------------------------------------------------------------
+        // ROUTE CHO THÀNH VIÊN 3
+        // ----------------------------------------------------------------
 
+        // 13. Màn hình Cá nhân/Hồ sơ (Thay thế cho "history" trong bottom nav)
+        composable("profile") {
+            ProfileScreen(navController = navController)
+        }
+
+        // 14. Màn hình Đọc Truyện (từ Chi tiết truyện)
+        composable(
+            route = "read/{mangaId}/{chapterId}",
+            arguments = listOf(
+                navArgument("mangaId") { type = NavType.IntType },
+                navArgument("chapterId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val mangaId = backStackEntry.arguments?.getInt("mangaId") ?: 0
+            val chapterId = backStackEntry.arguments?.getInt("chapterId") ?: 0
+            ReadScreen(navController = navController, mangaId = mangaId, chapterId = chapterId)
+        }
+
+        // 15. Màn hình Quản lý Tải xuống
+        composable("download_manager") {
+            DownloadManagerScreen(navController = navController)
+        }
+
+        // 16. Màn hình Cài đặt
+        composable("settings") {
+            SettingScreen(navController = navController)
+        }
     }
 }

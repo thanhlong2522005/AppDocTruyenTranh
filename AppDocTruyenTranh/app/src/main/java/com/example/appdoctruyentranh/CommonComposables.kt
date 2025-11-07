@@ -8,8 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
@@ -27,14 +25,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.appdoctruyentranh.model.Story
+
 @Composable
 fun CustomTextField(
     value: String,
@@ -114,7 +113,13 @@ data class BottomNavItem(
     val icon: ImageVector,
     val label: String
 )
-data class Story(val id: Int, val title: String)
+// Cập nhật Story để phù hợp với việc sử dụng (Mặc dù phần này nên nằm ở model/data)
+data class Story(
+    val id: Int,
+    val title: String,
+    val coverUrl: String? = null,
+    val latestChapter: String? = null // Thêm trường này cho phong phú
+)
 
 @Composable
 fun StoryItem(story: Story, onClick: () -> Unit) {
@@ -243,7 +248,8 @@ fun AppBottomNavigationBar(navController: NavHostController) {
             BottomNavItem("genre", Icons.Default.Menu, "Danh mục"),
             BottomNavItem("search", Icons.Default.Search, "Tìm kiếm"),
             BottomNavItem("favorite", Icons.Default.Favorite, "Yêu thích"),
-            BottomNavItem("history", Icons.Default.Person, "Cá nhân")
+            // Cập nhật route cho Cá nhân
+            BottomNavItem("profile", Icons.Default.Person, "Cá nhân")
         )
 
         items.forEach { item ->
