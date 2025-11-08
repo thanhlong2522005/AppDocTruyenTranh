@@ -6,6 +6,7 @@ import com.example.appdoctruyentranh.data.MangaRepository
 import com.example.appdoctruyentranh.model.HomeUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class HomeViewModel : ViewModel() {
@@ -14,17 +15,24 @@ class HomeViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState
 
+    // Thêm dòng này
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
         loadHomeData()
     }
-    // Trong HomeViewModel.kt
+
     fun refresh() {
+        _isRefreshing.value = true  // Bắt đầu refresh
         _uiState.value = HomeUiState(isLoading = true, errorMessage = null)
         loadHomeData()
     }
+
     fun loadHomeData() {
         viewModelScope.launch {
             try {
+
                 val banners = repository.fetchBanners()
                 val newStories = repository.fetchNewStories()
                 val mostViewed = repository.fetchMostViewed()
@@ -42,6 +50,8 @@ class HomeViewModel : ViewModel() {
                     isLoading = false,
                     errorMessage = e.message ?: "Không thể tải dữ liệu"
                 )
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }

@@ -23,6 +23,7 @@ import com.example.appdoctruyentranh.GenreScreen
 import com.example.appdoctruyentranh.MangaDetailScreen
 import com.example.appdoctruyentranh.FavoriteScreen
 
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -94,6 +95,28 @@ fun AppNavigation() {
         // 11. Màn hình Thể loại
         composable("genre") {
             GenreScreen(navController = navController)
+        }
+        composable(
+            route = "genre_detail/{genreId}/{genreName}",
+            arguments = listOf(
+                navArgument("genreId") {
+                    type = NavType.IntType
+                    defaultValue = 0 // Optional: provide default if needed
+                },
+                navArgument("genreName") {
+                    type = NavType.StringType
+                    defaultValue = "" // or null if using nullable
+                }
+            )
+        ) { backStackEntry ->
+            val genreId = backStackEntry.arguments?.getInt("genreId") ?: 0
+            val genreName = backStackEntry.arguments?.getString("genreName") ?: ""
+
+            GenreDetailScreen(
+                navController = navController,
+                genreId = genreId,
+                genreName = genreName
+            )
         }
 
         // 12. Màn hình Chi tiết Truyện (CẦN navArgument)

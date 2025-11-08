@@ -1,6 +1,5 @@
 package com.example.appdoctruyentranh
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,94 +21,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.appdoctruyentranh.AppHeader
+import coil.compose.AsyncImage
 import com.example.appdoctruyentranh.AppBottomNavigationBar
+import com.example.appdoctruyentranh.AppHeader
 import com.example.appdoctruyentranh.PrimaryColor
+import com.example.appdoctruyentranh.model.Genre
+import java.net.URLEncoder
+import com.example.appdoctruyentranh.model.UiState
+import com.example.appdoctruyentranh.viewmodel.GenreViewModel
 
-// --- Data Model và Mock Data Riêng ---
-data class Genre(val id: Int, val name: String, val iconResId: Int)
-
-val mockGenres = listOf(
-    // Sử dụng 0 làm placeholder ID cho icon
-    Genre(1, "Hành Động", 0),
-    Genre(2, "Huyền Huyễn", 0),
-    Genre(3, "Xuyên Không", 0),
-    Genre(4, "Tình Cảm", 0),
-    Genre(5, "Học Đường", 0),
-    Genre(6, "Phiêu Lưu", 0),
-    Genre(7, "Hài Hước", 0),
-    Genre(8, "Kinh Dị", 0),
-    Genre(9, "Cổ Trang", 0),
-    Genre(10, "Giả Tưởng", 0),
-    Genre(11, "Võ Thuật", 0),
-    Genre(12, "Siêu Năng", 0),
-)
-
-// =========================================================================
-// Màn hình Chính: GenreScreen
-// =========================================================================
-
-@Composable
-fun GenreScreen(navController: NavHostController) {
-    Scaffold(
-        // TRUYỀN COMPOSABLE CHO NÚT TRỞ VỀ
-        topBar = {
-            AppHeader(
-                navigationIcon = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Icon quay lại
-                        contentDescription = "Quay lại",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .padding(16.dp)
-                            .clickable {
-                                navController.popBackStack() // Hành động quay lại
-                            }
-                    )
-                }
-            )
-        },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Tiêu đề lớn "Danh mục"
-            Text(
-                text = "Danh mục",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp))
-
-            // LazyVerticalGrid để hiển thị các mục theo dạng lưới
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(mockGenres) { genre ->
-                    GenreItem(genre = genre) {
-                        // Xử lý khi click: Chuyển đến màn hình danh sách truyện theo thể loại
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-// =========================================================================
-// Các Composable Màn hình Genre
-// =========================================================================
+// ========================================================================
+// Item thể loại riêng (TÁCH RA NGOÀI ĐỂ DÙNG TRƯỚC)
+// ========================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,13 +43,11 @@ fun GenreItem(genre: Genre, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(110.dp)
+            .height(120.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF0F0F0) // Nền màu xám nhạt
-        ),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8)),
+        elevation = CardDefaults.cardElevation(3.dp)
     ) {
         Column(
             modifier = Modifier
@@ -132,24 +56,31 @@ fun GenreItem(genre: Genre, onClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Icon Thể loại (Placeholder)
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(PrimaryColor.copy(alpha = 0.2f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+            // --- Icon hoặc hình ảnh ---
+            if (genre.icon.isNotEmpty()) {
+                AsyncImage(
+                    model = genre.icon,
+                    contentDescription = genre.name,
+                    modifier = Modifier
+                        .size(50.dp)
+                        .background(PrimaryColor.copy(alpha = 0.1f), CircleShape)
+                        .padding(10.dp)
+                )
+            } else {
                 Icon(
-                    imageVector = Icons.Default.Menu, // Icon placeholder
+                    imageVector = Icons.Default.Menu,
                     contentDescription = genre.name,
                     tint = PrimaryColor,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(PrimaryColor.copy(alpha = 0.1f), CircleShape)
+                        .padding(6.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Tên Thể loại
+            // --- Tên thể loại ---
             Text(
                 text = genre.name,
                 fontSize = 14.sp,
@@ -161,6 +92,106 @@ fun GenreItem(genre: Genre, onClick: () -> Unit) {
     }
 }
 
+// ========================================================================
+// Màn hình chính hiển thị danh sách thể loại
+// ========================================================================
+
+@Composable
+fun GenreScreen(
+    navController: NavHostController,
+    viewModel: GenreViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        topBar = {
+            AppHeader(
+                navigationIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .padding(16.dp)
+                            .clickable { navController.popBackStack() }
+                    )
+                }
+            )
+        },
+        bottomBar = { AppBottomNavigationBar(navController = navController) }
+    ) { paddingValues ->
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // --- Tiêu đề ---
+            Text(
+                text = "Danh mục truyện",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp))
+
+            // --- Trạng thái dữ liệu ---
+            when (uiState) {
+                is UiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = PrimaryColor)
+                    }
+                }
+
+                is UiState.Success -> {
+                    val genres = (uiState as UiState.Success<List<Genre>>).data
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(genres) { genre ->
+                            GenreItem(genre = genre) {
+                                navController.navigate("genre_detail/${genre.id}/${genre.name}")                            }
+                        }
+                    }
+                }
+
+                UiState.Empty -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Không có thể loại nào", fontSize = 16.sp, color = Color.Gray)
+                    }
+                }
+
+                is UiState.Error -> {
+                    val errorMessage = (uiState as UiState.Error).message
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Lỗi tải dữ liệu", color = Color.Red, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(errorMessage, color = Color.Gray, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { viewModel.retry() },
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                            ) {
+                                Text("Thử lại", color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ========================================================================
+// Preview
+// ========================================================================
 
 @Preview(showBackground = true)
 @Composable

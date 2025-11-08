@@ -1,5 +1,7 @@
+// File: HomeScreen.kt
 package com.example.appdoctruyentranh
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -7,328 +9,287 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.rememberAsyncImagePainter
 import com.example.appdoctruyentranh.model.BannerItem
+import com.example.appdoctruyentranh.model.HomeUiState
 import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.HomeViewModel
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.res.painterResource
 
 val BannerHeight = 200.dp
 
-
-// =========================================================================
-// Màn hình Chính: HomeScreen (dùng ViewModel)
-// =========================================================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavHostController,
     viewModel: HomeViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState.collectAsState().value
+    val uiState by viewModel.uiState.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val pullRefreshState = rememberPullToRefreshState()
 
-    HomeScreenContent(
-        uiState = uiState,
-        navController = navController,
-        onRefresh = { viewModel.refresh() }
-    )
-}
-
-@Composable
-fun HomeScreenContent(
-    uiState: com.example.appdoctruyentranh.model.HomeUiState,
-    navController: NavHostController,
-    onRefresh: () -> Unit
-) {
     Scaffold(
         topBar = { AppHeader() },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
+        bottomBar = { AppBottomNavigationBar(navController) }
     ) { paddingValues ->
-        when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = PrimaryColor)
-                }
-            }
 
-            uiState.errorMessage != null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Lỗi: ${uiState.errorMessage}",
-                            color = Color.Red,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onRefresh) {
-                            Text("Thử lại")
-                        }
-                    }
-                }
-            }
-
-            uiState.isEmpty -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Không có dữ liệu để hiển thị",
-                        color = Color.Gray,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-
-            else -> {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh() },
+            state = pullRefreshState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            indicator = {}
+        ) {
+            SmartListState(
+                uiState = uiState.toUiState(),
+                onRetry = { viewModel.refresh() },
+                emptyIcon = Icons.Outlined.Refresh,
+                emptyTitle = "Chưa có dữ liệu",
+                emptyMessage = "Vuốt xuống để làm mới nhé!",
+                buttonText = "Thử lại"
+            ) { data ->
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     // 1. Banner
-                    if (uiState.banners.isNotEmpty()) {
-                        item { SectionHeader(title = "Đề xuất") }
+                    if (data.banners.isNotEmpty()) {
+                        item { SectionHeader("Đề xuất") }
                         item {
                             HomeBannerCarousel(
-                                banners = uiState.banners,
-                                onBannerClick = { banner ->
-                                    navController.navigate("manga_detail/${banner.id}")
-                                }
+                                banners = data.banners,
+                                onBannerClick = { navController.navigate("manga_detail/${it.id}") }
                             )
                         }
-                        item { Spacer(modifier = Modifier.height(16.dp)) }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
 
                     // 2. Mới cập nhật
-                    if (uiState.newUpdates.isNotEmpty()) {
-                        item {
-                            StorySection(
-                                title = "Mới Cập Nhật",
-                                stories = uiState.newUpdates,
-                                onStoryClick = { story ->
-                                    navController.navigate("manga_detail/${story.id}")
-                                }
-                            )
-                        }
-                        item { Spacer(modifier = Modifier.height(16.dp)) }
-                    } else {
-                        item { EmptySectionPlaceholder("Mới Cập Nhật") }
-                    }
+                    data.newUpdates.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { StorySection("Mới Cập Nhật", list, navController) }
+                    } ?: item { EmptySectionPlaceholder("Mới Cập Nhật") }
 
                     // 3. Xem nhiều nhất
-                    if (uiState.mostViewed.isNotEmpty()) {
-                        item {
-                            StorySection(
-                                title = "Xem Nhiều Nhất",
-                                stories = uiState.mostViewed,
-                                onStoryClick = { story ->
-                                    navController.navigate("manga_detail/${story.id}")
-                                }
-                            )
-                        }
-                        item { Spacer(modifier = Modifier.height(16.dp)) }
-                    } else {
-                        item { EmptySectionPlaceholder("Xem Nhiều Nhất") }
-                    }
+                    data.mostViewed.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { StorySection("Xem Nhiều Nhất", list, navController) }
+                    } ?: item { EmptySectionPlaceholder("Xem Nhiều Nhất") }
 
                     // 4. Truyện hoàn thành
-                    if (uiState.completedStories.isNotEmpty()) {
-                        item {
-                            StorySection(
-                                title = "Truyện Hoàn Thành",
-                                stories = uiState.completedStories,
-                                onStoryClick = { story ->
-                                    navController.navigate("manga_detail/${story.id}")
-                                }
-                            )
-                        }
-                        item { Spacer(modifier = Modifier.height(16.dp)) }
-                    } else {
-                        item { EmptySectionPlaceholder("Truyện Hoàn Thành") }
-                    }
+                    data.completedStories.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { StorySection("Truyện Hoàn Thành", list, navController) }
+                    } ?: item { EmptySectionPlaceholder("Truyện Hoàn Thành") }
                 }
             }
         }
     }
 }
 
-// =========================================================================
-// Placeholder khi không có dữ liệu
-// =========================================================================
+// === GIỮ NGUYÊN HẾT CÁC HÀM DƯỚI ĐÂY (không thay đổi giao diện) ===
+
+private fun HomeUiState.toUiState(): com.example.appdoctruyentranh.model.UiState<HomeUiState> = when {
+    isLoading -> com.example.appdoctruyentranh.model.UiState.Loading
+    errorMessage != null -> com.example.appdoctruyentranh.model.UiState.Error(errorMessage!!)
+    banners.isEmpty() && newUpdates.isEmpty() && mostViewed.isEmpty() && completedStories.isEmpty() ->
+        com.example.appdoctruyentranh.model.UiState.Empty
+    else -> com.example.appdoctruyentranh.model.UiState.Success(this)
+}
+
 @Composable
 fun EmptySectionPlaceholder(title: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(text = "Xem tất cả", color = PrimaryColor, fontSize = 14.sp)
-        }
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        SectionHeader(title)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp)
-                .padding(horizontal = 16.dp)
-                .background(Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                .height(140.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.LightGray.copy(0.2f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "Chưa có dữ liệu", color = Color.Gray)
+            Text("Chưa có truyện", color = Color.Gray)
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
-// =========================================================================
-// Các Composable giữ nguyên (chỉ thay mock → real data)
-// =========================================================================
 @Composable
 fun SectionHeader(title: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Text(
-            text = "Xem tất cả",
+            "Xem tất cả",
             color = PrimaryColor,
             fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable { /* TODO: Navigate to All */ }
+            modifier = Modifier.clickable { /* TODO */ }
         )
     }
 }
 
 @Composable
 fun HomeBannerCarousel(banners: List<BannerItem>, onBannerClick: (BannerItem) -> Unit) {
+    val pageCount = banners.size
     val pagerState = remember { mutableStateOf(0) }
-    Column(modifier = Modifier.fillMaxWidth()) {
+
+    Column {
         LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(BannerHeight),
+            modifier = Modifier.height(BannerHeight),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            itemsIndexed(banners) { index, item ->
-                BannerItemCard(item = item) {
-                    pagerState.value = index
-                    onBannerClick(item)
+            itemsIndexed(banners) { index, banner ->
+                Card(
+                    modifier = Modifier
+                        .width(320.dp)
+                        .fillMaxHeight()
+                        .clickable { onBannerClick(banner) },
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Box {
+                        Image(
+                            painter = rememberAsyncImagePainter(
+                                model = banner.imageUrl,
+                                placeholder = painterResource(android.R.drawable.ic_menu_gallery)
+                            ),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.4f))
+                        )
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                banner.title,
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2
+                            )
+                            if (banner.subtitle.isNotEmpty()) {
+                                Text(
+                                    banner.subtitle,
+                                    color = Color.White.copy(0.8f),
+                                    fontSize = 14.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 16.dp),
+                .padding(top = 12.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            banners.forEachIndexed { index, _ ->
+            repeat(pageCount) { index ->
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
-                        .background(
-                            color = if (index == pagerState.value) PrimaryColor else Color.LightGray,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        )
+                        .size(if (index == pagerState.value) 10.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(if (index == pagerState.value) PrimaryColor else Color.LightGray)
                         .clickable { pagerState.value = index }
                 )
-                if (index < banners.lastIndex) Spacer(modifier = Modifier.width(6.dp))
+                if (index < pageCount - 1) Spacer(Modifier.width(6.dp))
             }
         }
     }
 }
 
 @Composable
-fun BannerItemCard(item: BannerItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .width(320.dp)
-            .fillMaxHeight()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Gray),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.size(64.dp)
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = item.title,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StorySection(
-    title: String,
-    stories: List<Story>,
-    onStoryClick: (Story) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = title)
+fun StorySection(title: String, stories: List<Story>, navController: NavHostController) {
+    Column {
+        SectionHeader(title)
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(stories) { story ->
-                StoryItem(story = story, onClick = { onStoryClick(story) })
+                StoryCard(story = story) {
+                    navController.navigate("manga_detail/${story.id}")
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun StoryCard(story: Story, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .width(130.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(6.dp)
+    ) {
+        Column {
+            Image(
+                painter = rememberAsyncImagePainter(
+                    model = story.imageUrl,
+                    placeholder = painterResource(android.R.drawable.ic_menu_gallery)
+                ),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .height(180.dp)
+                    .fillMaxWidth()
+            )
+            Column(modifier = Modifier.padding(8.dp)) {
+                Text(
+                    story.title,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 14.sp
+                )
+                Text(
+                    "Chap ${story.chapters.size}",
+                    color = PrimaryColor,
+                    fontSize = 12.sp
+                )
             }
         }
     }
