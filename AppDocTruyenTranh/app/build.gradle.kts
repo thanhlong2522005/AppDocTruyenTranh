@@ -72,6 +72,10 @@ dependencies {
     implementation("com.google.accompanist:accompanist-swiperefresh:0.34.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation ("com.facebook.android:facebook-login:16.0.1")
+
 
 
 

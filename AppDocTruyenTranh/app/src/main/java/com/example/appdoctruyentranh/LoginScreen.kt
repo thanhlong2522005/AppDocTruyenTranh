@@ -1,5 +1,10 @@
-package com.example.appdoctruyentranh // Thay bằng package của bạn
+package com.example.appdoctruyentranh
 
+import android.app.Activity
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,27 +20,112 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation // <-- Đảm bảo có import này
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.facebook.CallbackManager
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FacebookAuthProvider
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 
 @Composable
 fun LoginScreen(navController: NavController) {
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val loginManager = LoginManager.getInstance()
+    val callbackManager = remember { CallbackManager.Factory.create() }
 
-    // --- Định nghĩa màu sắc (giữ nguyên) ---
+    val googleSignInClient: GoogleSignInClient by lazy {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(context, gso)
+    }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+        onResult = { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                try {
+                    val account = task.getResult(ApiException::class.java)!!
+                    val credential = GoogleAuthProvider.getCredential(account.idToken!!, null)
+                    auth.signInWithCredential(credential)
+                        .addOnCompleteListener { authTask ->
+                            if (authTask.isSuccessful) {
+                                Toast.makeText(context, "Đăng nhập Google thành công!", Toast.LENGTH_SHORT).show()
+                                navController.navigate("home")
+                            } else {
+                                val exception = authTask.exception
+                                Toast.makeText(context, "Firebase Auth thất bại: ${exception?.message}", Toast.LENGTH_LONG).show()
+                                Log.e("GoogleSignIn", "Firebase Auth Failed", exception)
+                            }
+                        }
+                } catch (e: ApiException) {
+                    Toast.makeText(context, "Lỗi Google Sign-In: ${e.statusCode}", Toast.LENGTH_LONG).show()
+                    Log.e("GoogleSignIn", "Google Sign-In Failed", e)
+                }
+            } else {
+                Toast.makeText(context, "Đăng nhập Google đã bị hủy.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val facebookLoginLauncher = rememberLauncherForActivityResult(
+        contract = loginManager.createLogInActivityResultContract(callbackManager, null),
+        onResult = { /* The result is handled in the callback */ }
+    )
+
+    DisposableEffect(Unit) {
+        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                val credential = FacebookAuthProvider.getCredential(result.accessToken.token)
+                auth.signInWithCredential(credential)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            Toast.makeText(context, "Đăng nhập Facebook thành công!", Toast.LENGTH_SHORT).show()
+                            navController.navigate("home")
+                        } else {
+                            Toast.makeText(context, "Đăng nhập Facebook thất bại.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+            }
+
+            override fun onCancel() {
+                Toast.makeText(context, "Đăng nhập Facebook đã bị hủy.", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onError(error: FacebookException) {
+                Toast.makeText(context, "Đăng nhập Facebook thất bại: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+
+        onDispose {
+            loginManager.unregisterCallback(callbackManager)
+        }
+    }
+
+
     val gradientBrush = Brush.verticalGradient(
         colors = listOf(Color(0xFFE1E0FF), Color(0xFFF8F8FF))
     )
@@ -43,26 +133,21 @@ fun LoginScreen(navController: NavController) {
     val loginButtonColor = Color(0xFFB0B0B0)
     val lightTextColor = Color.Gray
 
-    // --- Bố cục chính (SỬA DÙNG BOX) ---
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .imePadding() // <-- CHÌA KHÓA LÀ ĐẶT NÓ Ở ĐÂY
+            .imePadding()
     ) {
-        // --- PHẦN 1: NỘI DUNG TRÊN (NỀN TRẮNG) ---
-        // (Phần này phải cuộn được)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // Cho phép cuộn khi nội dung bị đẩy lên
                 .verticalScroll(rememberScrollState())
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(60.dp))
 
-            // Tiêu đề
             Text(
                 text = "Đăng Nhập",
                 fontSize = 32.sp,
@@ -78,9 +163,8 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Nút Đăng nhập Google
             Button(
-                onClick = { /* TODO: Xử lý logic Google Login */ },
+                onClick = { googleSignInLauncher.launch(googleSignInClient.signInIntent) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(25.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -102,9 +186,8 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Nút Đăng nhập Facebook
             Button(
-                onClick = { /* TODO: Xử lý logic Facebook Login */ },
+                onClick = { facebookLoginLauncher.launch(listOf("email", "public_profile")) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(25.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -125,7 +208,6 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Link "Sign up"
             ClickableText(
                 text = buildAnnotatedString {
                     withStyle(style = SpanStyle(color = lightTextColor, fontSize = 14.sp)) {
@@ -146,16 +228,12 @@ fun LoginScreen(navController: NavController) {
                 }
             )
 
-            // Thêm một khoảng đệm ở cuối để cuộn cho đẹp
-            // (Khi form tím đẩy lên, phần này sẽ bị che)
             Spacer(modifier = Modifier.height(300.dp))
         }
 
-        // --- PHẦN 2: NỘI DUNG DƯỚI (NỀN CONG) ---
-        // (Phần này căn đáy)
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter) // <-- Luôn dính ở đáy Box
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp))
                 .background(gradientBrush)
@@ -163,7 +241,6 @@ fun LoginScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // Ô nhập Email
             CustomTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -173,16 +250,14 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Ô nhập Mật khẩu
             CustomPasswordTextField(
                 value = password,
                 onValueChange = { password = it },
                 placeholder = "Mật khẩu"
             )
 
-            // Link Quên mật khẩu
             TextButton(
-                onClick = { navController.navigate("forgot_password") }, // <-- ĐÃ SỬA
+                onClick = { navController.navigate("forgot_password") },
                 modifier = Modifier.align(Alignment.End)
             ) {
                 Text(
@@ -194,9 +269,22 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Nút Đăng nhập
             Button(
-                onClick = { /* TODO: Xử lý logic Đăng nhập */ },
+                onClick = {
+                    if (email.isNotEmpty() && password.isNotEmpty()) {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
+                                    navController.navigate("home")
+                                } else {
+                                    Toast.makeText(context, "Đăng nhập thất bại: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                    } else {
+                        Toast.makeText(context, "Vui lòng điền đầy đủ thông tin!", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -211,4 +299,3 @@ fun LoginScreen(navController: NavController) {
         }
     }
 }
-

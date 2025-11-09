@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:914131659519:android:4f5ba9267515687ca23aca",
+        "mobilesdk_app_id": "1:914131659519:android:6e9bbf0588cf503fa23aca",
         "android_client_info": {
           "package_name": "com.example.appdoctruyentranh"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "914131659519-05ri8dmkoa4i0f0i16gjdjo0fu49ri9v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.appdoctruyentranh",
+            "certificate_hash": "9e54b5869caac2714aad0d2f0a0d3da2ce80bf03"
+          }
+        },
+        {
+          "client_id": "914131659519-r9bc4a8gu72jgboaksflqdalojf887s8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBpTQFkGMlS3zbAOEPlloGJUatIMOJOt5s"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "914131659519-r9bc4a8gu72jgboaksflqdalojf887s8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

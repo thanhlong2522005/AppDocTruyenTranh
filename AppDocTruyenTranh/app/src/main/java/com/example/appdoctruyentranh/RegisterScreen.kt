@@ -1,5 +1,6 @@
 package com.example.appdoctruyentranh
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun RegisterScreen(navController: NavController) {
@@ -35,6 +38,8 @@ fun RegisterScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
 
     // --- Định nghĩa màu sắc (giữ nguyên) ---
     val gradientBrush = Brush.verticalGradient(
@@ -79,54 +84,7 @@ fun RegisterScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Nút Đăng nhập Google
-            Button(
-                onClick = { /* TODO: Xử lý logic Google Login */ },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_google),
-                    contentDescription = "Google Icon",
-                    modifier = Modifier.size(24.dp)
-                )
-                Text(
-                    text = "Đăng nhập bằng Google",
-                    modifier = Modifier.padding(start = 16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Nút Đăng nhập Facebook
-            Button(
-                onClick = { /* TODO: Xử lý logic Facebook Login */ },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = facebookButtonColor,
-                    contentColor = Color.White
-                )
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_facebook),
-                    contentDescription = "Facebook Icon",
-                    modifier = Modifier.size(24.dp)
-                )
-                Text(
-                    text = "Đăng nhập bằng Facebook",
-                    modifier = Modifier.padding(start = 16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Link "Sign up"
+            // Link "Sign in"
             ClickableText(
                 text = buildAnnotatedString {
                     withStyle(style = SpanStyle(color = lightTextColor, fontSize = 14.sp)) {
@@ -194,7 +152,25 @@ fun RegisterScreen(navController: NavController) {
 
             // Nút Đăng nhập
             Button(
-                onClick = { /* TODO: Xử lý logic Đăng nhập */ },
+                onClick = {
+                    if (email.isNotEmpty() && password.isNotEmpty() && confirmPassword.isNotEmpty()) {
+                        if (password == confirmPassword) {
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("login")
+                                    } else {
+                                        Toast.makeText(context, "Đăng ký thất bại: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                        } else {
+                            Toast.makeText(context, "Mật khẩu không khớp!", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Vui lòng điền đầy đủ thông tin!", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),

@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">AppDocTruyenTranh</string>
+    <string name="default_web_client_id">914131659519-r9bc4a8gu72jgboaksflqdalojf887s8.apps.googleusercontent.com</string>
+    <string name="facebook_app_id">25260126763620171</string>
+    <string name="facebook_client_token">e55d609bf2322ee1b2e3c0476066892f</string>
+    <string name="fb_login_protocol_scheme">fb25260126763620171</string>
 </resources>
