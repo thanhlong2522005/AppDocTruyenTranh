@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.appdoctruyentranh.ui.theme.AppDocTruyenTranhTheme
-import com.example.appdoctruyentranh.HistoryScreen
 import com.example.appdoctruyentranh.HomeScreen
 import com.example.appdoctruyentranh.SearchScreen
 import com.example.appdoctruyentranh.GenreScreen

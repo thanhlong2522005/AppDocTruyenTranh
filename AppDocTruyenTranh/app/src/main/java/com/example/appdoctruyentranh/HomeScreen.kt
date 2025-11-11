@@ -38,9 +38,14 @@ import com.example.appdoctruyentranh.viewmodel.HomeViewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.res.painterResource
+import com.example.appdoctruyentranh.model.Chapter
 
 val BannerHeight = 200.dp
+var chapters = mutableStateListOf<Chapter>()
+val totalChapters: Int
+    get() = chapters.size
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -287,7 +292,7 @@ fun StoryCard(story: Story, onClick: () -> Unit) {
                     fontSize = 14.sp
                 )
                 Text(
-                    "Chap ${story.chapters.size}",
+                    "Chap ${story.totalChapters}",
                     color = PrimaryColor,
                     fontSize = 12.sp
                 )

@@ -21,7 +21,23 @@ class FavoriteViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        println("Lỗi FavoriteViewModel: ${throwable.localizedMessage}")
+        _favoriteStories.value = emptyList()
+        _isLoading.value = false
+    }
+
     init {
+        // Tải lần đầu khi ViewModel được khởi tạo
+        // (Đây không đủ để cập nhật từ màn hình khác)
+        loadFavoriteStories()
+    }
+
+    /**
+     * Hàm công khai để buộc tải lại danh sách yêu thích.
+     * Sẽ được gọi từ FavoriteScreen khi màn hình được đưa lên (ví dụ: dùng LaunchedEffect).
+     */
+    fun refreshFavorites() {
         loadFavoriteStories()
     }
 
@@ -33,7 +49,7 @@ class FavoriteViewModel : ViewModel() {
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             _isLoading.value = true
             try {
                 withTimeout(8000) { // Timeout 8 giây
@@ -53,6 +69,8 @@ class FavoriteViewModel : ViewModel() {
 
                     val stories = mutableListOf<Story>()
                     for (storyId in storyIds) {
+                        // Sử dụng async để tải song song các truyện
+                        // và withContext(Dispatchers.IO) nếu cần, nhưng Firebase SDK đã hỗ trợ suspension.
                         try {
                             val storyDoc = db.collection("stories").document(storyId).get().await()
                             storyDoc.toObject(Story::class.java)?.copy(id = storyId)?.let {
@@ -65,13 +83,11 @@ class FavoriteViewModel : ViewModel() {
                     }
 
                     _favoriteStories.value = stories.sortedBy { it.title }
-                    _isLoading.value = false
+
                 }
             } catch (e: TimeoutCancellationException) {
-                _favoriteStories.value = emptyList()
-                _isLoading.value = false
-            } catch (e: Exception) {
-                _favoriteStories.value = emptyList()
+                // Đã được xử lý bởi CoroutineExceptionHandler
+            } finally {
                 _isLoading.value = false
             }
         }
@@ -88,7 +104,8 @@ class FavoriteViewModel : ViewModel() {
                     .delete()
                     .await()
 
-                loadFavoriteStories() // TẢI LẠI NGAY
+                // ⭐️ Tải lại danh sách sau khi xóa thành công
+                loadFavoriteStories()
                 onComplete()
             } catch (e: Exception) {
                 onComplete()

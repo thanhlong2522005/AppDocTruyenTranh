@@ -36,7 +36,9 @@ fun FavoriteScreen(navController: NavHostController) {
     val isLoading by viewModel.isLoading.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf<Story?>(null) }
-
+    LaunchedEffect(true) {
+        viewModel.refreshFavorites()
+    }
     Scaffold(
         topBar = {
             AppHeader(

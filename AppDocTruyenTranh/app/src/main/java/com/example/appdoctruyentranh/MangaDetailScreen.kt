@@ -1,26 +1,16 @@
-@file:OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalLayoutApi::class
-)
-
 package com.example.appdoctruyentranh
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -28,25 +18,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.appdoctruyentranh.model.Story
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.model.Chapter
+import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.MangaDetailViewModel
 
+// ========================== MÀU CHỮ ==========================
 val TextPrimary = Color(0xFF212121)
 val TextSecondary = Color(0xFF757575)
 
 // ===============================================================
-// MÀN HÌNH CHÍNH: MangaDetailScreen
+// MÀN HÌNH CHÍNH
 // ===============================================================
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
-    val viewModel: MangaDetailViewModel = viewModel(
-        key = "manga_detail_$mangaId"
-    )
+    val viewModel: MangaDetailViewModel = viewModel(key = "manga_detail_$mangaId")
     val mangaDetail by viewModel.mangaDetail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -55,9 +44,8 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
     val tabs = listOf("Thông tin", "Chương")
 
     // 🔹 Gọi load dữ liệu khi vào màn hình
-    LaunchedEffect(mangaId) {
-        viewModel.loadMangaDetail(mangaId)
-    }
+    LaunchedEffect(mangaId) { viewModel.loadMangaDetail(mangaId) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -77,23 +65,26 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryColor
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryColor)
             )
         },
         bottomBar = { AppBottomNavigationBar(navController = navController) }
     ) { paddingValues ->
-
         when {
             isLoading -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(color = PrimaryColor)
                 }
             }
 
             error != null -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(text = error ?: "Đã xảy ra lỗi", color = Color.Red)
                 }
             }
@@ -105,7 +96,15 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    item { DetailSummarySection(detail = detail) }
+                    item {
+                        DetailSummarySection(
+                            detail = detail,
+                            onLikeClick = { viewModel.toggleLike() },
+                            onRatingChange = { rating -> viewModel.updateRating(rating) },
+                            navController = navController,
+                            viewModel = viewModel
+                        )
+                    }
 
                     stickyHeader {
                         TabRow(
@@ -140,11 +139,16 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
 }
 
 // ===============================================================
-// CÁC THÀNH PHẦN PHỤ
+// PHẦN TÓM TẮT
 // ===============================================================
-
 @Composable
-fun DetailSummarySection(detail: Story) {
+fun DetailSummarySection(
+    detail: Story,
+    onLikeClick: () -> Unit,
+    onRatingChange: (Float) -> Unit,
+    navController: NavHostController,
+    viewModel: MangaDetailViewModel
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Card(
@@ -169,9 +173,14 @@ fun DetailSummarySection(detail: Story) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    InfoStat(Icons.Default.Favorite, detail.likes)
+                    InfoStat(
+                        icon = if (detail.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        text = detail.likes.toString(),
+                        tint = if (detail.isLiked) Color.Red else TextSecondary,
+                        onClick = onLikeClick
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
-                    InfoStat(Icons.Default.Visibility, detail.views)
+                    InfoStat(Icons.Default.Visibility, detail.views.toString())
                     Spacer(modifier = Modifier.width(16.dp))
                     InfoStat(Icons.Default.List, detail.totalChapters.toString())
                 }
@@ -179,7 +188,7 @@ fun DetailSummarySection(detail: Story) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RatingBar(rating = detail.rating)
+                    RatingBar(rating = detail.rating, onRatingChanged = onRatingChange)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(detail.rating.toString(), color = TextSecondary)
                 }
@@ -187,6 +196,37 @@ fun DetailSummarySection(detail: Story) {
         }
 
         Spacer(modifier = Modifier.height(12.dp))
+
+        // 🔹 Nút Đọc Ngay — mở chương đầu tiên
+        Button(
+            onClick = {
+                val firstChapter = detail.chapters.firstOrNull()
+                if (firstChapter != null) {
+                    viewModel.incrementViewCount()   // Tăng lượt xem
+
+                    // ⭐️ SỬA LỖI #1: CHUYỂN firstChapter.id TỪ INT SANG STRING
+                    val chapterIdString = firstChapter.id.toString()
+
+                    // LƯU VÀO LỊCH SỬ ĐỌC
+                    viewModel.saveReadHistory(
+                        storyId = detail.id,
+                        chapterId = chapterIdString // Dùng String ID
+                    )
+
+                    // ⭐️ SỬA LỖI #2: CHUYỂN firstChapter.id TỪ INT SANG STRING
+                    navController.navigate("read/${detail.id}/${chapterIdString}")
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.MenuBook, contentDescription = null, tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Đọc ngay", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -208,29 +248,46 @@ fun DetailSummarySection(detail: Story) {
     }
 }
 
+
+// ===============================================================
+// INFO + RATING
+// ===============================================================
 @Composable
-fun InfoStat(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+fun InfoStat(icon: ImageVector, text: String, tint: Color = TextSecondary, onClick: (() -> Unit)? = null) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable(enabled = onClick != null) { onClick?.invoke() }
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(4.dp))
         Text(text, fontSize = 14.sp, color = TextSecondary)
     }
 }
 
 @Composable
-fun RatingBar(rating: Float) {
+fun RatingBar(rating: Float, onRatingChanged: (Float) -> Unit) {
+    var currentRating by remember { mutableFloatStateOf(rating) }
+
     Row {
-        (1..5).forEach { index ->
+        for (i in 1..5) {
             Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = null,
-                tint = if (index <= rating.toInt()) Color.Yellow else Color.LightGray,
-                modifier = Modifier.size(20.dp)
+                tint = if (i <= currentRating) Color.Yellow else Color.LightGray,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable {
+                        currentRating = i.toFloat()
+                        onRatingChanged(i.toFloat())
+                    }
             )
         }
     }
 }
 
+// ===============================================================
+// INFO TAB & CHAPTER TAB
+// ===============================================================
 @Composable
 fun InfoTabContent(detail: Story) {
     Column(modifier = Modifier.padding(16.dp)) {
@@ -250,9 +307,7 @@ fun InfoTabContent(detail: Story) {
 
 @Composable
 fun ChapterTabContent(mangaId: String, chapters: List<Chapter>, navController: NavHostController) {
-    LazyColumn(
-        modifier = Modifier.height(500.dp)
-    ) {
+    LazyColumn(modifier = Modifier.height(500.dp)) {
         items(chapters) { chapter ->
             ChapterItem(chapter = chapter) {
                 navController.navigate("read/$mangaId/${chapter.id}")
@@ -279,19 +334,18 @@ fun ChapterItem(chapter: Chapter, onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Text(
-            text = chapter.uploadDate,
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
+        Text(text = chapter.uploadDate, fontSize = 12.sp, color = TextSecondary)
     }
 }
 
+// ===============================================================
+// PREVIEW
+// ===============================================================
 @Preview(showBackground = true)
 @Composable
 fun PreviewMangaDetailScreen() {
     MangaDetailScreen(
         navController = rememberNavController(),
-        mangaId = "preview_123" // ← String
+        mangaId = "preview_123"
     )
 }
