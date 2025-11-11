@@ -21,8 +21,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appdoctruyentranh.model.Story
+
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.appdoctruyentranh.model.Chapter
+
 // Giả định PrimaryColor, AppHeader, AppBottomNavigationBar, và Story
 // đã được định nghĩa và truy cập được từ AppComponents.kt hoặc package này.
 
@@ -34,10 +38,90 @@ data class HistoryItem(
 )
 
 val mockHistoryStories = listOf(
-    HistoryItem(Story(1, "Toàn Cầu Quỷ Dị Thời Đại"), "Chương 25", "Vừa xong"),
-    HistoryItem(Story(9, "Thiên Đạo Đồ Thư Quán"), "Chương 150", "1 giờ trước"),
-    HistoryItem(Story(10, "Vạn Cổ Tối Cường Tông"), "Chương 50", "Hôm qua"),
-    HistoryItem(Story(11, "Phàm Nhân Tu Tiên"), "Chương 10", "1 tuần trước"),
+    HistoryItem(
+        story = Story(
+            id ="",
+            title = "Toàn Cầu Quỷ Dị Thời Đại",
+            author = "Tác giả A",
+            status = "Đang tiến hành",
+            rating = 4.7f,
+            imageUrl = "https://i.imgur.com/global_horror_cover.jpg",
+            likes = "120k",
+            views = "1.2M",
+            totalChapters = 150,
+            genreIds = listOf(1, 2),
+            genres = listOf("Hành động", "Kinh dị"),
+            description = "Thế giới đột nhiên bước vào thời đại quỷ dị...",
+            chapters = listOf(
+                Chapter(id = 25, number = 25, title = "Đại chiến quỷ vương", uploadDate = "2025-03-15")
+            )
+        ),
+        lastChapter = "Chương 25",  // ĐÃ SỬA: lastChapter
+        readTime = "Vừa xong"
+    ),
+    HistoryItem(
+        story = Story(
+            id = "9",
+            title = "Thiên Đạo Đồ Thư Quán",
+            author = "Hoành Tảo Thiên Nhai",
+            status = "Đang tiến hành",
+            rating = 4.8f,
+            imageUrl = "https://i.imgur.com/library_of_heaven.jpg",
+            likes = "280k",
+            views = "2.8M",
+            totalChapters = 800,
+            genreIds = listOf(1, 4),
+            genres = listOf("Hành động", "Huyền huyễn"),
+            description = "Trương Huyền xuyên không thành giáo viên...",
+            chapters = listOf(
+                Chapter(id = 150, number = 150, title = "Thư viện mở rộng", uploadDate = "2025-06-08")
+            )
+        ),
+        lastChapter = "Chương 150",  // ĐÃ SỬA
+        readTime = "1 giờ trước"
+    ),
+    HistoryItem(
+        story = Story(
+            id = "0",
+            title = "Vạn Cổ Tối Cường Tông",
+            author = "Tác giả B",
+            status = "Đã hoàn thành",
+            rating = 4.9f,
+            imageUrl = "https://i.imgur.com/strongest_sect_cover.jpg",
+            likes = "300k",
+            views = "3.5M",
+            totalChapters = 100,
+            genreIds = listOf(1, 3, 4),
+            genres = listOf("Hành động", "Tiên hiệp", "Huyền huyễn"),
+            description = "Một phế vật bị trục xuất...",
+            chapters = listOf(
+                Chapter(id = 50, number = 50, title = "Tông môn hưng thịnh", uploadDate = "2024-12-30")
+            )
+        ),
+        lastChapter = "Chương 50",  // ĐÃ SỬA
+        readTime = "Hôm qua"
+    ),
+    HistoryItem(
+        story = Story(
+            id = "1",
+            title = "Phàm Nhân Tu Tiên",
+            author = "Vong Ngữ",
+            status = "Đang tiến hành",
+            rating = 4.8f,
+            imageUrl = "https://i.imgur.com/mortal_cultivation_cover.jpg",
+            likes = "500k",
+            views = "5.8M",
+            totalChapters = 2450,
+            genreIds = listOf(3, 4),
+            genres = listOf("Tiên hiệp", "Huyền huyễn"),
+            description = "Một phàm nhân không có thiên phú...",
+            chapters = listOf(
+                Chapter(id = 10, number = 10, title = "Luyện khí tầng 10", uploadDate = "2025-02-01")
+            )
+        ),
+        lastChapter = "Chương 10",  // ĐÃ SỬA
+        readTime = "1 tuần trước"
+    )
 )
 
 // =========================================================================

@@ -9,13 +9,13 @@ import kotlinx.coroutines.tasks.await
 class GenreRepository {
     private val db = FirebaseFirestore.getInstance()
 
+
     // LẤY DANH SÁCH THỂ LOẠI (DÙNG CHO GenreViewModel)
     suspend fun getGenres(): List<Genre> {
         return try {
             val snapshot = db.collection("genres").get().await()
             snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Genre::class.java)?.apply {
-                    // Nếu id là document ID thì ép kiểu sang Int
                     id = doc.id.toIntOrNull() ?: 0
                 }
             }
@@ -31,9 +31,10 @@ class GenreRepository {
             val snapshot = db.collection("stories").get().await()
             snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Story::class.java)?.apply {
-                    id = doc.id.toIntOrNull() ?: 0
+                    id = doc.id
                 }
             }
+
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -51,9 +52,10 @@ class GenreRepository {
 
             snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Story::class.java)?.apply {
-                    id = doc.id.toIntOrNull() ?: 0
+                    id = doc.id
                 }
             }
+
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()

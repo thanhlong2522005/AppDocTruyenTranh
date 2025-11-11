@@ -1,6 +1,6 @@
-// File: com/example/appdoctruyentranh/ui/GenreDetailScreen.kt
 package com.example.appdoctruyentranh
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.example.appdoctruyentranh.PrimaryColor
 import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.GenreDetailViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,13 +72,13 @@ fun GenreDetailScreen(
         Box(modifier = Modifier.padding(paddingValues)) {
             when {
                 isLoading -> {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = PrimaryColor)
                     }
                 }
 
                 error != null -> {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 imageVector = Icons.Default.Warning,
@@ -87,15 +87,24 @@ fun GenreDetailScreen(
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(Modifier.height(16.dp))
-                            Text("Lỗi kết nối", color = Color.Red, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Lỗi kết nối",
+                                color = Color.Red,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                             Spacer(Modifier.height(8.dp))
-                            Text(error!!, textAlign = TextAlign.Center, color = Color.Gray)
+                            Text(
+                                text = error!!,
+                                textAlign = TextAlign.Center,
+                                color = Color.Gray
+                            )
                         }
                     }
                 }
 
                 stories.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = "Chưa có truyện nào trong thể loại này",
                             color = Color.Gray,
@@ -109,7 +118,7 @@ fun GenreDetailScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(stories) { story ->
+                        items(stories, key = { it.id }) { story ->  // Thêm key để tối ưu
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -118,7 +127,7 @@ fun GenreDetailScreen(
                                     },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(6.dp)
+                                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
@@ -143,7 +152,8 @@ fun GenreDetailScreen(
                                             text = story.title,
                                             style = MaterialTheme.typography.titleLarge,
                                             fontWeight = FontWeight.Bold,
-                                            maxLines = 2
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                         )
                                         Spacer(Modifier.height(6.dp))
                                         Text(
@@ -152,9 +162,45 @@ fun GenreDetailScreen(
                                             },
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = Color.DarkGray,
-                                            maxLines = 3
+                                            maxLines = 3,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                         )
                                         Spacer(Modifier.height(8.dp))
+
+                                        // === GENRES - CHIP ===
+                                       /* if (story.genres.isNotEmpty()) {
+                                            FlowRow(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.padding(vertical = 4.dp)
+                                            ) {
+                                                story.genres.forEach { genre ->
+                                                    AssistChip(
+                                                        onClick = { },
+                                                        label = {
+                                                            Text(
+                                                                text = genre,
+                                                                fontSize = 12.sp,
+                                                                color = PrimaryColor // Giữ màu chữ là PrimaryColor
+                                                            )
+                                                        },
+                                                        colors = AssistChipDefaults.assistChipColors(
+                                                            // Đặt màu nền containerColor thành Color.Transparent để loại bỏ nền
+                                                            containerColor = Color.Transparent,
+                                                            labelColor = PrimaryColor
+                                                        ),
+                                                        // Bỏ thuộc tính 'border' để loại bỏ viền
+                                                        // border = BorderStroke(1.dp, PrimaryColor) // Dòng này đã bị loại bỏ
+                                                    )
+
+                                                }
+                                            }
+                                            Spacer(Modifier.height(8.dp))
+
+                                        }
+
+                                        */
+
+                                        // Số chapter
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
                                                 imageVector = Icons.Default.AccessTime,

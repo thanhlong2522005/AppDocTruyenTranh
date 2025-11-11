@@ -121,46 +121,6 @@ data class Story(
     val latestChapter: String? = null // Thêm trường này cho phong phú
 )
 
-@Composable
-fun StoryItem(story: Story, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .width(100.dp)
-            .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.Start
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp),
-            shape = MaterialTheme.shapes.small
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
-            ) {
-                // Sử dụng Icon Search làm placeholder
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = "Cover",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = story.title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
 // =========================================================================
 // 1. AppHeader (Logo và Tên ứng dụng)
 // =========================================================================

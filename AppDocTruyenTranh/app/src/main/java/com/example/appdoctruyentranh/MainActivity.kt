@@ -3,19 +3,25 @@ package com.example.appdoctruyentranh
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.NavType
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import com.example.appdoctruyentranh.ui.theme.AppDocTruyenTranhTheme
+import com.example.appdoctruyentranh.HistoryScreen
+import com.example.appdoctruyentranh.HomeScreen
+import com.example.appdoctruyentranh.SearchScreen
+import com.example.appdoctruyentranh.GenreScreen
+import com.example.appdoctruyentranh.MangaDetailScreen
+import com.example.appdoctruyentranh.FavoriteScreen
 
 
 class MainActivity : ComponentActivity() {
@@ -23,7 +29,6 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
-
         setContent {
             AppDocTruyenTranhTheme { // Theme Compose của bạn
                 AppNavigation()
@@ -96,11 +101,11 @@ fun AppNavigation() {
             arguments = listOf(
                 navArgument("genreId") {
                     type = NavType.IntType
-                    defaultValue = 0 // Optional: provide default if needed
+                    defaultValue = 0
                 },
                 navArgument("genreName") {
                     type = NavType.StringType
-                    defaultValue = "" // or null if using nullable
+                    defaultValue = ""
                 }
             )
         ) { backStackEntry ->
@@ -114,12 +119,14 @@ fun AppNavigation() {
             )
         }
 
-        // 12. Màn hình Chi tiết Truyện (CẦN navArgument)
+        // 12. Màn hình Chi tiết Truyện
         composable(
             route = "manga_detail/{mangaId}",
-            arguments = listOf(navArgument("mangaId") { type = NavType.IntType; defaultValue = 1 })
+            arguments = listOf(
+                navArgument("mangaId") { type = NavType.StringType }
+            )
         ) { backStackEntry ->
-            val mangaId = backStackEntry.arguments?.getInt("mangaId") ?: 1
+            val mangaId = backStackEntry.arguments?.getString("mangaId") ?: return@composable
             MangaDetailScreen(navController = navController, mangaId = mangaId)
         }
 
@@ -132,15 +139,11 @@ fun AppNavigation() {
             ProfileScreen(navController = navController)
         }
 
-        composable("edit_profile") {
-            EditProfileScreen(navController = navController)
-        }
-
         // 14. Màn hình Đọc Truyện (từ Chi tiết truyện)
         composable(
             route = "read/{mangaId}/{chapterId}",
             arguments = listOf(
-                navArgument("mangaId") { type = NavType.IntType },
+                navArgument("mangaId") { type = NavType.StringType },
                 navArgument("chapterId") { type = NavType.IntType }
             )
         ) { backStackEntry ->

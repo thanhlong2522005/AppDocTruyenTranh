@@ -1,4 +1,3 @@
-// File: com/example/appdoctruyentranh/viewmodel/GenreDetailViewModel.kt
 package com.example.appdoctruyentranh.viewmodel
 
 import androidx.compose.runtime.State

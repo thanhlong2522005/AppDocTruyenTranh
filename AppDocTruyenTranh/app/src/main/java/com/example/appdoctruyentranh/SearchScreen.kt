@@ -1,3 +1,4 @@
+// File: SearchScreen.kt
 package com.example.appdoctruyentranh
 
 import androidx.compose.foundation.clickable
@@ -13,7 +14,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
@@ -23,25 +23,23 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.model.Story
-import androidx.compose.foundation.layout.PaddingValues
-
-// === Mock data ===
-val mockRecentSearches = listOf("Tiên hiệp", "Đô thị", "Quỷ Dị")
-val mockSearchResults = listOf(
-    Story(1, "Toàn Cầu Quỷ Dị Thời Đại", "https://example.com/cover1.jpg"),
-    Story(2, "Nguyên Lai Ta Là Tà Tu Tiên Đại Lão", "https://example.com/cover2.jpg"),
-    Story(3, "Đệ tử tu luyện", "https://example.com/cover3.jpg"),
-    Story(4, "Ngã Dục Phong Thiên", "https://example.com/cover4.jpg"),
-)
+import com.example.appdoctruyentranh.model.StoryItem
+import com.example.appdoctruyentranh.viewmodel.SearchViewModel
 
 @Composable
 fun SearchScreen(navController: NavHostController) {
-    var query by remember { mutableStateOf("") }
-    var recentSearches by remember { mutableStateOf(mockRecentSearches) }
-    var searchResults by remember { mutableStateOf<List<Story>?>(null) }
+    val viewModel: SearchViewModel = viewModel()
+    val query by viewModel.searchQuery.collectAsState()
+    val genreId by viewModel.selectedGenreId.collectAsState()
+    val results by viewModel.searchResults.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val genres by viewModel.genres.collectAsState()
+    val recentSearches by viewModel.recentSearches.collectAsState()
+
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
@@ -62,21 +60,21 @@ fun SearchScreen(navController: NavHostController) {
             )
         },
         bottomBar = { AppBottomNavigationBar(navController = navController) }
-    ) { innerPadding: PaddingValues -> // <-- khai báo kiểu rõ ràng
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding) // dùng biến innerPadding kiểu PaddingValues
+                .padding(innerPadding)
         ) {
             // Thanh tìm kiếm
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = { viewModel.updateQuery(it) },
                 placeholder = { Text("Tìm kiếm tên truyện, tác giả...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
+                        IconButton(onClick = { viewModel.clearResults() }) {
                             Icon(Icons.Default.Close, contentDescription = "Xóa")
                         }
                     }
@@ -84,14 +82,8 @@ fun SearchScreen(navController: NavHostController) {
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
-                        if (query.isNotBlank()) {
-                            // Thêm vào lịch sử (tránh trùng)
-                            recentSearches = (listOf(query) + recentSearches.filter { it != query }).take(6)
-                            // Giả lập tìm kiếm
-                            searchResults = mockSearchResults
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                        }
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
                     }
                 ),
                 singleLine = true,
@@ -104,21 +96,87 @@ fun SearchScreen(navController: NavHostController) {
                 )
             )
 
-            // Hiển thị kết quả hoặc lịch sử
-            if (searchResults != null) {
-                SearchResultsGrid(
-                    results = searchResults!!,
-                    onStoryClick = { story ->
-                        navController.navigate("manga_detail/${story.id}")
-                    }
+            // Bộ lọc thể loại
+            if (genres.isNotEmpty()) {
+                GenreFilter(
+                    genres = genres,
+                    selectedGenreId = genreId,
+                    onGenreSelected = { viewModel.selectGenre(it) }
                 )
-            } else {
-                RecentSearches(
-                    recentQueries = recentSearches,
-                    onQueryClick = { clickedQuery ->
-                        query = clickedQuery
-                        // Tự động tìm kiếm
-                        searchResults = mockSearchResults
+            }
+
+            // Nội dung
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        CircularProgressIndicator(color = PrimaryColor)
+                    }
+                }
+                results.isNotEmpty() -> {
+                    SearchResultsGrid(
+                        results = results,
+                        onStoryClick = { story ->
+                            if (story.id.isNotBlank()) {
+                                navController.navigate("manga_detail/${story.id}")
+                            }
+                        }
+                    )
+                }
+                query.isNotBlank() || genreId != null -> {
+                    EmptyState(message = "Không tìm thấy kết quả")
+                }
+                recentSearches.isNotEmpty() -> {
+                    RecentSearches(
+                        recentQueries = recentSearches,
+                        onQueryClick = { viewModel.updateQuery(it) },
+                        onClearAll = { viewModel.clearRecentSearches() }
+                    )
+                }
+                else -> {
+                    EmptyState(message = "Nhập từ khóa để tìm kiếm")
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GenreFilter(
+    genres: List<com.example.appdoctruyentranh.model.Genre>,
+    selectedGenreId: Int?,
+    onGenreSelected: (Int?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.padding(horizontal = 16.dp)
+    ) {
+        OutlinedTextField(
+            value = genres.find { it.id == selectedGenreId }?.name ?: "Tất cả thể loại",
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Tất cả thể loại") },
+                onClick = {
+                    onGenreSelected(null)
+                    expanded = false
+                }
+            )
+            genres.forEach { genre ->
+                DropdownMenuItem(
+                    text = { Text(genre.name) },
+                    onClick = {
+                        onGenreSelected(genre.id)
+                        expanded = false
                     }
                 )
             }
@@ -126,42 +184,32 @@ fun SearchScreen(navController: NavHostController) {
     }
 }
 
-// (phần còn lại giữ nguyên như trước)
 @Composable
-fun RecentSearches(recentQueries: List<String>, onQueryClick: (String) -> Unit) {
+fun RecentSearches(
+    recentQueries: List<String>,
+    onQueryClick: (String) -> Unit,
+    onClearAll: () -> Unit
+) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Text(
-            text = "Tìm kiếm gần đây",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        var remaining = recentQueries.size
-        Column {
-            while (remaining > 0) {
-                val rowItems = recentQueries.drop(recentQueries.size - remaining).take(3)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    rowItems.forEach { query ->
-                        FilterChip(
-                            onClick = { onQueryClick(query) },
-                            label = { Text(query, fontSize = 13.sp) },
-                            selected = false,
-                            modifier = Modifier.weight(1f),
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color(0xFFE0F7FA),
-                                labelColor = PrimaryColor
-                            )
-                        )
-                    }
-                    repeat(3 - rowItems.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-                remaining -= rowItems.size
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Tìm kiếm gần đây", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            TextButton(onClick = onClearAll) {
+                Text("Xóa tất cả", color = PrimaryColor)
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            recentQueries.forEach { query ->
+                FilterChip(
+                    onClick = { onQueryClick(query) },
+                    label = { Text(query, fontSize = 13.sp) },
+                    selected = false
+                )
             }
         }
     }
@@ -169,35 +217,28 @@ fun RecentSearches(recentQueries: List<String>, onQueryClick: (String) -> Unit) 
 
 @Composable
 fun SearchResultsGrid(results: List<Story>, onStoryClick: (Story) -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 8.dp)
-    ) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Text(
-            text = "Kết quả tìm kiếm (${results.size})",
+            text = "Kết quả (${results.size})",
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
-
+            modifier = Modifier.padding(bottom = 8.dp)
         )
-
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(results) { story ->
-                StoryItem(story = story) {
-                    onStoryClick(story)
-                }
+                StoryItem(story = story, onClick = { onStoryClick(story) })
             }
         }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun PreviewSearchScreen() {
-    SearchScreen(navController = rememberNavController())
+fun EmptyState(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text(message, color = Color.Gray, fontSize = 16.sp)
+    }
 }

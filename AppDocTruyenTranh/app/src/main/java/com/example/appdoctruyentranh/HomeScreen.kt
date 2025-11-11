@@ -158,7 +158,7 @@ fun SectionHeader(title: String) {
 }
 
 @Composable
-fun HomeBannerCarousel(banners: List<BannerItem>, onBannerClick: (BannerItem) -> Unit) {
+fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
     val pageCount = banners.size
     val pagerState = remember { mutableStateOf(0) }
 
@@ -168,19 +168,19 @@ fun HomeBannerCarousel(banners: List<BannerItem>, onBannerClick: (BannerItem) ->
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            itemsIndexed(banners) { index, banner ->
+            itemsIndexed(banners) { index, story ->
                 Card(
                     modifier = Modifier
                         .width(320.dp)
                         .fillMaxHeight()
-                        .clickable { onBannerClick(banner) },
+                        .clickable { onBannerClick(story) },
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(8.dp)
                 ) {
                     Box {
                         Image(
                             painter = rememberAsyncImagePainter(
-                                model = banner.imageUrl,
+                                model = story.imageUrl,
                                 placeholder = painterResource(android.R.drawable.ic_menu_gallery)
                             ),
                             contentDescription = null,
@@ -198,15 +198,15 @@ fun HomeBannerCarousel(banners: List<BannerItem>, onBannerClick: (BannerItem) ->
                                 .padding(16.dp)
                         ) {
                             Text(
-                                banner.title,
+                                story.title,
                                 color = Color.White,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 2
                             )
-                            if (banner.subtitle.isNotEmpty()) {
+                            if (story.author.isNotEmpty()) {
                                 Text(
-                                    banner.subtitle,
+                                    story.author,
                                     color = Color.White.copy(0.8f),
                                     fontSize = 14.sp,
                                     maxLines = 1
@@ -218,6 +218,7 @@ fun HomeBannerCarousel(banners: List<BannerItem>, onBannerClick: (BannerItem) ->
             }
         }
 
+        // Dấu chấm chỉ trang
         Row(
             modifier = Modifier
                 .fillMaxWidth()

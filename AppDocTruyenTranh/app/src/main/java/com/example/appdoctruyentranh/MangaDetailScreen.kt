@@ -1,6 +1,6 @@
 @file:OptIn(
-    ExperimentalMaterial3Api::class, // Cho TopAppBar, TabRow, AssistChip,...
-    ExperimentalLayoutApi::class      // Cho FlowRow
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class
 )
 
 package com.example.appdoctruyentranh
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.foundation.BorderStroke
@@ -29,150 +28,123 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appdoctruyentranh.model.Story
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.appdoctruyentranh.AppBottomNavigationBar
-// Import cần thiết
-// import com.example.appdoctruyentranh.PrimaryColor
-
-// ------------------------------------------------------------------------
-// DỮ LIỆU MẪU (Sử dụng lại Data Class Story đã cập nhật từ CommonComposables)
-// ------------------------------------------------------------------------
+import com.example.appdoctruyentranh.model.Chapter
+import com.example.appdoctruyentranh.viewmodel.MangaDetailViewModel
 
 val TextPrimary = Color(0xFF212121)
 val TextSecondary = Color(0xFF757575)
-data class MangaDetail(
-    val id: Int,
-    val title: String,
-    val author: String,
-    val status: String,
-    val rating: Float,
-    val likes: String,
-    val views: String,
-    val totalChapters: Int,
-    val genres: List<String>,
-    val description: String,
-    val chapters: List<Chapter>
-)
 
-data class Chapter(val id: Int, val number: Int, val title: String, val uploadDate: String)
-
-val mockChapters = (1..1021).map { Chapter(it, it, "Chương $it", "2 ngày trước") }
-
-val mockMangaDetail = MangaDetail(
-    id = 1,
-    title = "Chân Tiên",
-    author = "EK",
-    status = "Full",
-    rating = 0.0f,
-    likes = "45",
-    views = "101.2K",
-    totalChapters = 1021,
-    genres = listOf("Tiên Hiệp", "Kiếm Hiệp"),
-    description = "Ở kiếp này, hắn mang trong người pháp quyết vô thượng, trong nội tâm còn có rất nhiều nhiều công pháp tăng tiên tu vi từng cảnh giới khác nhau, cộng thêm thân phận tông sư đan dược, hắn nhất định sẽ đại phóng quang mang trong tu chân giới, đủ loại tiếc nuối kiếp trước, kiếp này sẽ không để nó phát sinh.",
-    chapters = mockChapters
-)
-
-// ------------------------------------------------------------------------
+// ===============================================================
 // MÀN HÌNH CHÍNH: MangaDetailScreen
-// ------------------------------------------------------------------------
+// ===============================================================
 
 @Composable
-fun MangaDetailScreen(navController: NavHostController, mangaId: Int = 1) {
-    val tabs = listOf("Thông tin", "Chương")
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    // Lấy chi tiết truyện (tạm thời dùng mock)
-    val detail = mockMangaDetail.copy(id = mangaId)
+fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
+    val viewModel: MangaDetailViewModel = viewModel(
+        key = "manga_detail_$mangaId"
+    )
+    val mangaDetail by viewModel.mangaDetail.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Thông tin", "Chương")
+
+    // 🔹 Gọi load dữ liệu khi vào màn hình
+    LaunchedEffect(mangaId) {
+        viewModel.loadMangaDetail(mangaId)
+    }
     Scaffold(
         topBar = {
-            AppHeader(
-                navigationIcon = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Icon quay lại
-                        contentDescription = "Quay lại",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .padding(16.dp)
-                            .clickable {
-                                navController.popBackStack() // Hành động quay lại
-                            }
+            TopAppBar(
+                title = {
+                    Text(
+                        text = mangaDetail?.title ?: "Chi tiết truyện",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
                     )
-                }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = PrimaryColor
+                )
             )
         },
         bottomBar = { AppBottomNavigationBar(navController = navController) }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            item { DetailSummarySection(detail = detail) }
 
-            stickyHeader {
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    containerColor = Color.White,
-                    contentColor = PrimaryColor
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            text = { Text(title, fontWeight = FontWeight.Bold) }
-                        )
-                    }
+        when {
+            isLoading -> {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryColor)
                 }
             }
 
-            item {
-                when (selectedTabIndex) {
-                    0 -> InfoTabContent(detail = detail)
-                    1 -> ChapterTabContent(
-                        mangaId = detail.id, // Truyền ID truyện vào
-                        chapters = detail.chapters,
-                        navController = navController
-                    )
+            error != null -> {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    Text(text = error ?: "Đã xảy ra lỗi", color = Color.Red)
+                }
+            }
+
+            mangaDetail != null -> {
+                val detail = mangaDetail!!
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    item { DetailSummarySection(detail = detail) }
+
+                    stickyHeader {
+                        TabRow(
+                            selectedTabIndex = selectedTabIndex,
+                            containerColor = Color.White,
+                            contentColor = PrimaryColor
+                        ) {
+                            tabs.forEachIndexed { index, title ->
+                                Tab(
+                                    selected = selectedTabIndex == index,
+                                    onClick = { selectedTabIndex = index },
+                                    text = { Text(title, fontWeight = FontWeight.Bold) }
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        when (selectedTabIndex) {
+                            0 -> InfoTabContent(detail = detail)
+                            1 -> ChapterTabContent(
+                                mangaId = detail.id,
+                                chapters = detail.chapters,
+                                navController = navController
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// ------------------------------------------------------------------------
-// HEADER & TÓM TẮT
-// ------------------------------------------------------------------------
+// ===============================================================
+// CÁC THÀNH PHẦN PHỤ
+// ===============================================================
 
 @Composable
-fun MangaDetailHeader(title: String, onBack: () -> Unit) {
-    TopAppBar(
-        title = {
-            Text(
-                text = title,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Quay lại",
-                    tint = Color.White
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = PrimaryColor
-        )
-    )
-}
-
-@Composable
-fun DetailSummarySection(detail: MangaDetail) {
+fun DetailSummarySection(detail: Story) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Card(
@@ -192,7 +164,7 @@ fun DetailSummarySection(detail: MangaDetail) {
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(detail.title, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
+                Text(detail.title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
                 Text(detail.author, fontSize = 16.sp, color = TextSecondary)
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -211,21 +183,6 @@ fun DetailSummarySection(detail: MangaDetail) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(detail.rating.toString(), color = TextSecondary)
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { /* Xử lý đánh giá */ },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray.copy(alpha = 0.5f)),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("0 đánh giá", color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(12.dp))
-                }
             }
         }
 
@@ -238,7 +195,7 @@ fun DetailSummarySection(detail: MangaDetail) {
         ) {
             detail.genres.forEach { genre ->
                 AssistChip(
-                    onClick = { /* Navigate to genre list */ },
+                    onClick = { /* Navigate to genre */ },
                     label = { Text(genre, fontSize = 14.sp) },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = Color.White,
@@ -274,19 +231,14 @@ fun RatingBar(rating: Float) {
     }
 }
 
-// ------------------------------------------------------------------------
-// TAB NỘI DUNG
-// ------------------------------------------------------------------------
-
 @Composable
-fun InfoTabContent(detail: MangaDetail) {
+fun InfoTabContent(detail: Story) {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Trạng Thái", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("Trạng thái", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Text(detail.status, fontSize = 14.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 16.dp))
 
-        Text("Miêu tả", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text("Giới Thiệu Truyện", fontSize = 14.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
-
+        Text("Giới thiệu", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = detail.description,
             fontSize = 14.sp,
@@ -297,13 +249,12 @@ fun InfoTabContent(detail: MangaDetail) {
 }
 
 @Composable
-fun ChapterTabContent(mangaId: Int, chapters: List<Chapter>, navController: NavHostController) {
+fun ChapterTabContent(mangaId: String, chapters: List<Chapter>, navController: NavHostController) {
     LazyColumn(
         modifier = Modifier.height(500.dp)
     ) {
         items(chapters) { chapter ->
             ChapterItem(chapter = chapter) {
-                // SỬA: Điều hướng đến màn hình đọc truyện
                 navController.navigate("read/$mangaId/${chapter.id}")
             }
             Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
@@ -321,15 +272,13 @@ fun ChapterItem(chapter: Chapter, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Chương ${chapter.number}: ${chapter.title}",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Text(
+            text = "Chương ${chapter.number}: ${chapter.title}",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         Text(
             text = chapter.uploadDate,
             fontSize = 12.sp,
@@ -341,5 +290,8 @@ fun ChapterItem(chapter: Chapter, onClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewMangaDetailScreen() {
-    MangaDetailScreen(navController = rememberNavController())
+    MangaDetailScreen(
+        navController = rememberNavController(),
+        mangaId = "preview_123" // ← String
+    )
 }

@@ -1,112 +1,114 @@
+// File: data/MangaRepository.kt
 package com.example.appdoctruyentranh.data
 
-import com.example.appdoctruyentranh.model.BannerItem
-import com.example.appdoctruyentranh.model.Genre
-import com.example.appdoctruyentranh.model.Story
+import com.example.appdoctruyentranh.model.*
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 
 class MangaRepository {
 
     private val db = FirebaseFirestore.getInstance()
 
-    // ===================== Banner =====================
-    suspend fun fetchBanners(): List<BannerItem> {
+    // ===================== Lấy banner =====================
+    suspend fun fetchBanners(): List<Story> {
         return try {
-            val snapshot = db.collection("banners").get().await()
-            snapshot.documents.mapNotNull { doc ->
-                val title = doc.getString("title") ?: return@mapNotNull null
-                val imageUrl = doc.getString("imageUrl") ?: ""
-                val id = doc.getLong("id")?.toInt() ?: 0
-                BannerItem(id = id, title = title, imageUrl = imageUrl)
+            val bannerDocs = db.collection("banners").get().await()
+            bannerDocs.documents.mapNotNull { bannerDoc ->
+                val storyId = bannerDoc.getString("storyId") ?: return@mapNotNull null
+                val storySnapshot = db.collection("stories").document(storyId).get().await()
+                storySnapshot.toObject(Story::class.java)?.copy(id = storySnapshot.id)
             }
         } catch (e: Exception) {
-            emptyList() // Trả về rỗng nếu lỗi
+            e.printStackTrace()
+            emptyList()
         }
     }
 
     // ===================== Mới cập nhật =====================
-    suspend fun fetchNewStories(): List<Story> {
-        return try {
-            val snapshot = db.collection("new_updates").get().await()
-            snapshot.documents.mapNotNull { doc ->
-                val title = doc.getString("title") ?: return@mapNotNull null
-                val id = doc.getLong("id")?.toInt() ?: 0
-                val imageUrl = doc.getString("imageUrl") ?: ""
-                Story(id = id, title = title, imageUrl = imageUrl)
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
+    suspend fun fetchNewStories(): List<Story> = fetchStoriesFromRef("new_updates")
 
     // ===================== Xem nhiều nhất =====================
-    suspend fun fetchMostViewed(): List<Story> {
-        return try {
-            val snapshot = db.collection("most_viewed").get().await()
-            snapshot.documents.mapNotNull { doc ->
-                val title = doc.getString("title") ?: return@mapNotNull null
-                val id = doc.getLong("id")?.toInt() ?: 0
-                val imageUrl = doc.getString("imageUrl") ?: ""
-                Story(id = id, title = title, imageUrl = imageUrl)
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
+    suspend fun fetchMostViewed(): List<Story> = fetchStoriesFromRef("most_viewed")
 
     // ===================== Truyện hoàn thành =====================
-    suspend fun fetchCompletedStories(): List<Story> {
+    suspend fun fetchCompletedStories(): List<Story> = fetchStoriesFromRef("completed_stories")
+
+    // ===================== Hàm phụ dùng chung =====================
+    private suspend fun fetchStoriesFromRef(collection: String): List<Story> {
         return try {
-            val snapshot = db.collection("completed_stories").get().await()
-            snapshot.documents.mapNotNull { doc ->
-                val title = doc.getString("title") ?: return@mapNotNull null
-                val id = doc.getLong("id")?.toInt() ?: 0
-                val imageUrl = doc.getString("imageUrl") ?: ""
-                Story(id = id, title = title, imageUrl = imageUrl)
+            val refDocs = db.collection(collection).get().await()
+            refDocs.documents.mapNotNull { doc ->
+                val storyId = doc.getString("storyId") ?: return@mapNotNull null
+                val storySnapshot = db.collection("stories").document(storyId).get().await()
+                storySnapshot.toObject(Story::class.java)?.copy(id = storySnapshot.id)
             }
         } catch (e: Exception) {
+            e.printStackTrace()
             emptyList()
         }
     }
 
-    // ===================== THỂ LOẠI (10 thể loại mẫu + Firestore) =====================
-    suspend fun fetchGenres(): List<Genre> {
+    // ===================== Chi tiết truyện =====================
+    suspend fun fetchMangaDetail(mangaId: String): Story? {
         return try {
-            val snapshot = db.collection("genres").get().await()
-            val genresFromFirestore = snapshot.documents.mapNotNull { doc ->
-                val id = doc.getLong("id")?.toInt() ?: return@mapNotNull null
-                val name = doc.getString("name") ?: return@mapNotNull null
-                val icon = doc.getString("icon") ?: ""
-                Genre(id = id, name = name, icon = icon)
-            }
+            val docRef = db.collection("stories").document(mangaId)
+            val snapshot = docRef.get().await()
+            if (!snapshot.exists()) return null
 
-            // Nếu Firestore có dữ liệu → dùng
-            if (genresFromFirestore.isNotEmpty()) {
-                genresFromFirestore
-            } else {
-                // Nếu rỗng → dùng dữ liệu mẫu
-                getDefaultGenres()
-            }
+            val story = snapshot.toObject(Story::class.java) ?: return null
+
+            val chaptersSnapshot = docRef.collection("chapters").get().await()
+            val chapters = chaptersSnapshot.documents.mapNotNull {
+                it.toObject(Chapter::class.java)
+            }.sortedByDescending { it.number }
+
+            story.copy(id = mangaId, chapters = chapters)
         } catch (e: Exception) {
-            // Lỗi mạng → vẫn trả về dữ liệu mẫu
-            getDefaultGenres()
+            e.printStackTrace()
+            null
         }
     }
 
-    // Dữ liệu thể loại mặc định (10 thể loại)
-    private fun getDefaultGenres(): List<Genre> {
-        return listOf(
-            Genre(id = 1, name = "Hành động", icon = "https://img.icons8.com/fluency/48/sword.png"),
-            Genre(id = 2, name = "Lãng mạn", icon = "https://img.icons8.com/fluency/48/two-hearts.png"),
-            Genre(id = 3, name = "Kinh dị", icon = "https://img.icons8.com/fluency/48/ghost.png"),
-            Genre(id = 4, name = "Hài hước", icon = "https://img.icons8.com/fluency/48/smiling.png"),
-            Genre(id = 5, name = "Khoa học", icon = "https://img.icons8.com/fluency/48/atom.png"),
-            Genre(id = 6, name = "Phiêu lưu", icon = "https://img.icons8.com/fluency/48/compass.png"),
-            Genre(id = 7, name = "Tâm lý", icon = "https://img.icons8.com/fluency/48/brain.png"),
-            Genre(id = 8, name = "Học đường", icon = "https://img.icons8.com/fluency/48/school.png"),
-            Genre(id = 9, name = "Siêu nhiên", icon = "https://img.icons8.com/fluency/48/magic.png"),
-            Genre(id = 10, name = "Viễn tưởng", icon = "https://img.icons8.com/fluency/48/rocket.png")
-        )
+    // ===================== TÌM KIẾM TRUYỆN – ĐÃ SỬA ĐÚNG VỊ TRÍ =====================
+    suspend fun searchStories(query: String, genreId: Int? = null): List<Story> {
+        return try {
+            var firestoreQuery: Query = db.collection("stories")
+
+            if (genreId != null) {
+                firestoreQuery = firestoreQuery.whereArrayContains("genreIds", genreId)
+            }
+
+            val snapshot = firestoreQuery.get().await()
+            val lowerQuery = query.trim().lowercase()
+
+            snapshot.documents
+                .mapNotNull { doc ->
+                    doc.toObject(Story::class.java)?.copy(id = doc.id)
+                }
+                .filter { story ->
+                    lowerQuery.isBlank() ||
+                            story.title.lowercase().contains(lowerQuery) ||
+                            story.author.lowercase().contains(lowerQuery)
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    // ===================== LẤY DANH SÁCH THỂ LOẠI =====================
+    suspend fun getGenres(): List<Genre> {
+        return try {
+            val snapshot = db.collection("genres").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                val idString = doc.id
+                val name = doc.getString("name") ?: return@mapNotNull null
+                Genre(id = idString.toInt(), name = name)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
     }
 }

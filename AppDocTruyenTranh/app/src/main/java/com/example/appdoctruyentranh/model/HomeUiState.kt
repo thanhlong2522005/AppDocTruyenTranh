@@ -1,7 +1,7 @@
 package com.example.appdoctruyentranh.model
 
 data class HomeUiState(
-    val banners: List<BannerItem> = emptyList(),
+    val banners: List<Story> = emptyList(),
     val newUpdates: List<Story> = emptyList(),
     val mostViewed: List<Story> = emptyList(),
     val completedStories: List<Story> = emptyList(),
