@@ -42,6 +42,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 
 @Composable
@@ -77,7 +78,11 @@ fun LoginScreen(navController: NavController) {
                                 navController.navigate("home")
                             } else {
                                 val exception = authTask.exception
-                                Toast.makeText(context, "Firebase Auth thất bại: ${exception?.message}", Toast.LENGTH_LONG).show()
+                                if (exception is FirebaseAuthUserCollisionException) {
+                                    Toast.makeText(context, "Email đã được sử dụng với một phương thức đăng nhập khác.", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Firebase Auth thất bại: ${exception?.message}", Toast.LENGTH_LONG).show()
+                                }
                                 Log.e("GoogleSignIn", "Firebase Auth Failed", exception)
                             }
                         }
@@ -106,7 +111,13 @@ fun LoginScreen(navController: NavController) {
                             Toast.makeText(context, "Đăng nhập Facebook thành công!", Toast.LENGTH_SHORT).show()
                             navController.navigate("home")
                         } else {
-                            Toast.makeText(context, "Đăng nhập Facebook thất bại.", Toast.LENGTH_SHORT).show()
+                            val exception = task.exception
+                             if (exception is FirebaseAuthUserCollisionException) {
+                                Toast.makeText(context, "Email đã được sử dụng với một phương thức đăng nhập khác.", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Xác thực Firebase thất bại: ${exception?.message}", Toast.LENGTH_LONG).show()
+                            }
+                            Log.e("FacebookSignIn", "Firebase Auth with Facebook Failed", exception)
                         }
                     }
             }
@@ -116,7 +127,8 @@ fun LoginScreen(navController: NavController) {
             }
 
             override fun onError(error: FacebookException) {
-                Toast.makeText(context, "Đăng nhập Facebook thất bại: ${error.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Lỗi Facebook SDK: ${error.message}", Toast.LENGTH_LONG).show()
+                Log.e("FacebookSignIn", "Facebook SDK Error", error)
             }
         })
 

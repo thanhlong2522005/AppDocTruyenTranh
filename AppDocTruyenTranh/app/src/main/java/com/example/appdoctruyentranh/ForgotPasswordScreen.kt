@@ -1,5 +1,6 @@
 package com.example.appdoctruyentranh
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,17 +10,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForgotPasswordScreen(navController: NavController) {
 
     var email by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
     val buttonColor = Color(0xFFC0C8FF) // Màu xanh nhạt của nút
 
     Scaffold(
@@ -56,7 +61,7 @@ fun ForgotPasswordScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Nhập email hoặc số điện thoại để cập nhật lại mật khẩu",
+                text = "Nhập email để nhận link đặt lại mật khẩu",
                 fontSize = 14.sp,
                 color = Color.Gray,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -68,15 +73,29 @@ fun ForgotPasswordScreen(navController: NavController) {
             CustomTextField(
                 value = email,
                 onValueChange = { email = it },
-                placeholder = "Nhập email hoặc số điện thoại",
-                keyboardType = KeyboardType.Text // Dùng Text để tránh lỗi máy ảo
+                placeholder = "Nhập email của bạn",
+                keyboardType = KeyboardType.Email
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             // Nút Gửi
             Button(
-                onClick = { navController.navigate("reset_password") }, // Chuyển sang màn hình 2
+                onClick = {
+                    if (email.isNotEmpty()) {
+                        auth.sendPasswordResetEmail(email)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    Toast.makeText(context, "Đã gửi link đặt lại mật khẩu đến email của bạn!", Toast.LENGTH_LONG).show()
+                                    navController.popBackStack() // Quay lại màn hình đăng nhập
+                                } else {
+                                    Toast.makeText(context, "Lỗi: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                    } else {
+                        Toast.makeText(context, "Vui lòng nhập email của bạn!", Toast.LENGTH_SHORT).show()
+                    }
+                }, 
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),

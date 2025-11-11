@@ -22,11 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-// Import PrimaryColor
+import coil.compose.rememberAsyncImagePainter
+import com.facebook.login.LoginManager
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun ProfileScreen(navController: NavHostController) {
+    val auth = FirebaseAuth.getInstance()
+
     Scaffold(
         topBar = { AppHeader(navigationIcon = null) }, // Icon menu mặc định
         bottomBar = { AppBottomNavigationBar(navController = navController) }
@@ -76,7 +79,20 @@ fun ProfileScreen(navController: NavHostController) {
                     icon = Icons.Default.Logout,
                     title = "Đăng xuất",
                     isLogout = true,
-                    onClick = { navController.navigate("login") { popUpTo("home") { inclusive = true } } }
+                    onClick = {
+                        // Đăng xuất khỏi Facebook SDK
+                        LoginManager.getInstance().logOut()
+                        // Đăng xuất khỏi Firebase
+                        auth.signOut()
+                        navController.navigate("login") {
+                            // Xóa tất cả các màn hình trước đó khỏi backstack
+                            popUpTo(navController.graph.startDestinationId) {
+                                inclusive = true
+                            }
+                            // Đảm bảo chỉ có một instance của màn hình login
+                            launchSingleTop = true
+                        }
+                    }
                 )
                 Divider(color = Color.LightGray)
             }
@@ -86,13 +102,18 @@ fun ProfileScreen(navController: NavHostController) {
 
 @Composable
 fun ProfileHeader(navController: NavHostController) {
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val userName = currentUser?.displayName ?: "Tên Người Dùng"
+    val userEmail = currentUser?.email ?: "user@example.com"
+    val userPhotoUrl = currentUser?.photoUrl
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Ảnh đại diện (Placeholder)
+        // Ảnh đại diện
         Box(
             modifier = Modifier
                 .size(70.dp)
@@ -100,30 +121,38 @@ fun ProfileHeader(navController: NavHostController) {
                 .background(PrimaryColor.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Avatar",
-                tint = PrimaryColor,
-                modifier = Modifier.size(40.dp)
-            )
+            if (userPhotoUrl != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = userPhotoUrl),
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Avatar",
+                    tint = PrimaryColor,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Tên Người Dùng", // Tạm thời
+                text = userName,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
             Text(
-                text = "user@example.com", // Tạm thời
+                text = userEmail,
                 fontSize = 14.sp,
                 color = Color.Gray
             )
         }
         // Nút Chỉnh sửa Profile
         IconButton(
-            onClick = { /* TODO: Navigate to Edit Profile */ } // Theo Figma: Chỉnh sửa
+            onClick = { navController.navigate("edit_profile") } // Theo Figma: Chỉnh sửa
         ) {
             Icon(
                 imageVector = Icons.Default.Edit,
