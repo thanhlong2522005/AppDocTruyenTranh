@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.model.Chapter
 import androidx.lifecycle.viewmodel.compose.viewModel // ⭐️ Cần import này
 import com.example.appdoctruyentranh.viewmodel.HistoryViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 data class HistoryItem(
     val story: Story,
@@ -38,89 +40,84 @@ data class HistoryItem(
     val readTime: String    // Ví dụ: "Vừa xong"
 )
 
-// ⭐️ Loại bỏ mockHistoryStories
-// val mockHistoryStories = listOf(...)
-
 // =========================================================================
 // Màn hình Chính: HistoryScreen (Đã sửa để dùng ViewModel)
 // =========================================================================
 
 @Composable
 fun HistoryScreen(navController: NavHostController) {
-    // ⭐️ Khởi tạo và theo dõi ViewModel
-    val viewModel: HistoryViewModel = viewModel()
-    val historyList by viewModel.historyList.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
-    LaunchedEffect(key1 = true) {
-        viewModel.loadReadHistory()
-    }
-    Scaffold(
-        topBar = {
-            AppHeader(
-                navigationIcon = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Quay lại",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .padding(16.dp)
-                            .clickable { navController.popBackStack() }
-                    )
-                }
-            )
-        },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // ... (Phần tiêu đề giữ nguyên)
-            Text(
-                text = "Lịch sử Đọc",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    if (currentUser == null) {
+        PleaseLoginScreen(navController = navController, title = "Lịch sử đọc")
+    } else {
+        val viewModel: HistoryViewModel = viewModel()
+        val historyList by viewModel.historyList.collectAsState()
+        val isLoading by viewModel.isLoading.collectAsState()
 
-            when {
-                isLoading -> {
-                    // ⭐️ Hiển thị Loading
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = PrimaryColor)
+        LaunchedEffect(key1 = true) {
+            viewModel.loadReadHistory()
+        }
+        Scaffold(
+            topBar = {
+                AppHeader(
+                    navigationIcon = {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                            tint = Color.White,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .padding(16.dp)
+                                .clickable { navController.popBackStack() }
+                        )
                     }
-                }
-                historyList.isEmpty() -> {
-                    // ⭐️ Hiển thị thông báo rỗng
-                    EmptyHistoryMessage(message = "Bạn chưa đọc truyện nào gần đây.")
-                }
-                else -> {
-                    // ⭐️ Hiển thị danh sách thực
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(historyList) { item ->
-                            HistoryStoryItem(
-                                item = item,
-                                onStoryClick = {
-                                    navController.navigate("manga_detail/${item.story.id}")
-                                },
-                                onResumeReadClick = {
-                                    // Chuyển hướng đến chương đang đọc dở (cần lấy chapterId thực)
-                                    // Tạm thời điều hướng đến chi tiết truyện
-                                    navController.navigate("manga_detail/${item.story.id}")
-                                },
-                                onDeleteClick = {
-                                    // ⭐️ Gọi hàm xóa từ ViewModel
-                                    viewModel.removeHistoryItem(item.story.id)
-                                }
-                            )
+                )
+            },
+            bottomBar = { AppBottomNavigationBar(navController = navController) }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                Text(
+                    text = "Lịch sử Đọc",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp))
+
+                when {
+                    isLoading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = PrimaryColor)
+                        }
+                    }
+                    historyList.isEmpty() -> {
+                        EmptyHistoryMessage(message = "Bạn chưa đọc truyện nào gần đây.")
+                    }
+                    else -> {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(historyList) { item ->
+                                HistoryStoryItem(
+                                    item = item,
+                                    onStoryClick = {
+                                        navController.navigate("manga_detail/${item.story.id}")
+                                    },
+                                    onResumeReadClick = {
+                                        navController.navigate("manga_detail/${item.story.id}")
+                                    },
+                                    onDeleteClick = {
+                                        viewModel.removeHistoryItem(item.story.id)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -148,9 +145,8 @@ fun HistoryStoryItem(
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ... (Phần Ảnh bìa giữ nguyên)
         Card(
-            modifier = Modifier.size(70.dp).clickable(onClick = onStoryClick), // Bấm vào bìa -> chi tiết
+            modifier = Modifier.size(70.dp).clickable(onClick = onStoryClick),
             shape = RoundedCornerShape(4.dp)
         ) {
             Box(
@@ -159,7 +155,6 @@ fun HistoryStoryItem(
                     .background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                // ⭐️ Thay thế bằng Coil Image nếu có imageUrl thực tế
                 Icon(
                     imageVector = Icons.Default.MenuBook,
                     contentDescription = "Cover",
@@ -171,9 +166,8 @@ fun HistoryStoryItem(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // 2. Thông tin
         Column(
-            modifier = Modifier.weight(1f).clickable(onClick = onStoryClick) // Bấm vào text -> chi tiết
+            modifier = Modifier.weight(1f).clickable(onClick = onStoryClick)
         ) {
             Text(
                 text = item.story.title,
@@ -188,7 +182,7 @@ fun HistoryStoryItem(
                 fontSize = 13.sp,
                 color = PrimaryColor,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable(onClick = onResumeReadClick) // Bấm vào đây -> đọc tiếp
+                modifier = Modifier.clickable(onClick = onResumeReadClick)
             )
             Text(
                 text = "Đọc lần cuối: ${item.readTime}",
@@ -197,7 +191,6 @@ fun HistoryStoryItem(
             )
         }
 
-        // 3. Nút Xóa
         IconButton(onClick = onDeleteClick) {
             Icon(
                 imageVector = Icons.Default.Delete,
@@ -208,7 +201,6 @@ fun HistoryStoryItem(
     }
 }
 
-// ... (Giữ nguyên EmptyHistoryMessage và Preview)
 
 @Composable
 fun EmptyHistoryMessage(message: String) {

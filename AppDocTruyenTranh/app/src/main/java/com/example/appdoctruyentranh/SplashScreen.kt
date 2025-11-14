@@ -29,11 +29,10 @@ import kotlinx.coroutines.delay
 fun SplashScreen(navController: NavController) {
 
     // --- PHẦN LOGIC ---
-    // Chạy một coroutine (tác vụ nền)
     LaunchedEffect(key1 = true) {
         delay(2000L) // Chờ 2 giây
 
-        // Chuyển màn hình
+        // Luôn luôn vào màn hình onboarding
         navController.navigate("onboarding") {
             // Xóa màn hình Splash khỏi backstack
             // để người dùng không thể nhấn "Back" quay lại

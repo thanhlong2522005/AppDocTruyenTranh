@@ -5,14 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,14 +26,19 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 
 import androidx.navigation.NavController
-
-// Nhớ import file font của bạn
 import com.example.appdoctruyentranh.mangagoFontFamily
+import kotlinx.coroutines.delay
 
 @Composable
 fun OnboardingScreen(navController: NavController) {
 
-    val backgroundColor = Color(0xFF0099FF)
+    // --- PHẦN LOGIC TỰ ĐỘNG CHUYỂN MÀN HÌNH ---
+    LaunchedEffect(key1 = true) {
+        delay(3000L) // Chờ 3 giây
+        navController.navigate("home") {
+            popUpTo("onboarding") { inclusive = true }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -48,7 +50,7 @@ fun OnboardingScreen(navController: NavController) {
             contentScale = ContentScale.Crop
         )
 
-        // LỚP 2: NỘI DUNG (Chữ và Nút)
+        // LỚP 2: NỘI DUNG (Chữ)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -87,42 +89,16 @@ fun OnboardingScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- ĐÃ SỬA ---
-            // 2. Slogan (ĐÃ BỎ VIỀN)
-            // Chỉ còn là một Text bình thường
+            // 2. Slogan
             Text(
                 text = "Cập nhật liên tục, trải nghiệm\nđọc trọn vẹn mọi lúc, mọi nơi",
                 fontSize = 16.sp,
                 color = Color.White, // Chữ màu trắng
                 textAlign = TextAlign.Center
             )
-            // --- HẾT PHẦN SỬA ---
 
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // 3. Nút Bắt đầu
-            Button(
-                onClick = {
-                    navController.navigate("home") {
-                        popUpTo("onboarding") { inclusive = true }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White
-                ),
-                shape = RoundedCornerShape(25.dp)
-            ) {
-                Text(
-                    text = "Bắt đầu",
-                    color = backgroundColor,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            // Thêm một khoảng đệm ở dưới cùng để đẹp hơn
+            Spacer(modifier = Modifier.height(60.dp))
         }
     }
 }

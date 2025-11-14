@@ -138,6 +138,10 @@ fun AppNavigation() {
             ProfileScreen(navController = navController)
         }
 
+        composable("edit_profile") {
+            EditProfileScreen(navController = navController)
+        }
+
         // 14. Màn hình Đọc Truyện (từ Chi tiết truyện)
         composable(
             route = "read/{mangaId}/{chapterId}",
