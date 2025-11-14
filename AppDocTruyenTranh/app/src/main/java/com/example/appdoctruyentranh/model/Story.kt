@@ -1,5 +1,7 @@
 package com.example.appdoctruyentranh.model
 
+import com.google.firebase.firestore.PropertyName
+
 
 data class Story(
     var id: String = "",
@@ -13,7 +15,9 @@ data class Story(
     val genres: List<String> = emptyList(),
     val description: String = "",
     val chapters: List<Chapter> = emptyList(),
+
     var isLiked: Boolean = false
+
 ) {
     val totalChapters: Int
         get() = chapters.size
@@ -23,7 +27,11 @@ data class Story(
 
 data class Chapter(
     val id: Int = 0,
-    val number: Int = 0,
+    var number: Int = 0,
     val title: String = "",
-    val uploadDate: String = ""
+    val uploadDate: String = "",
+    @get:PropertyName("page")
+    @set:PropertyName("page")
+    var pages: List<String> = emptyList()
+
 )

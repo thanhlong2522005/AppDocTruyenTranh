@@ -17,6 +17,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
     }
 
     buildTypes {
@@ -76,7 +77,11 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation ("com.facebook.android:facebook-login:16.0.1")
     implementation("com.google.firebase:firebase-storage")
-
+    implementation("com.google.accompanist:accompanist-pager:0.32.0")
+    implementation("androidx.activity:activity-compose:1.8.0")
+    implementation("com.cloudinary:cloudinary-android:2.3.1")
+    implementation("androidx.compose.foundation:foundation:1.6.0")
+    implementation("androidx.compose.foundation:foundation-layout:1.6.0")
 
 
 

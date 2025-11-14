@@ -96,29 +96,57 @@ class MangaRepository {
 
     // ===================== Truyện hoàn thành =====================
     suspend fun fetchCompletedStories(): List<Story> = fetchStoriesFromRef("completed_stories")
+    // ⭐ Lấy truyện được yêu thích
+    suspend fun fetchFavorites(): List<Story> = fetchStoriesFromRef("favorites_list")
+
+    // ⭐ Lấy truyện trending
+    suspend fun fetchTrending(): List<Story> = fetchStoriesFromRef("trending_list")
+
+    // ⭐ Lấy truyện mới ra mắt
+    suspend fun fetchNewReleases(): List<Story> = fetchStoriesFromRef("new_releases")
+
 
     // ===================== Hàm phụ dùng chung (Đã sửa) =====================
     private suspend fun fetchStoriesFromRef(collection: String): List<Story> {
         return try {
+            println("Đang tải từ collection: $collection")
             val refDocs = db.collection(collection).get().await()
+            println("Số document tìm được trong $collection: ${refDocs.size()}")
+
             refDocs.documents.mapNotNull { doc ->
-                val storyId = doc.getString("storyId") ?: return@mapNotNull null
+                val storyId = doc.getString("storyId") ?: run {
+                    println("Document không có storyId: ${doc.id}")
+                    return@mapNotNull null
+                }
+                println("Tìm thấy storyId: $storyId")
+
                 val storySnapshot = db.collection("stories").document(storyId).get().await()
+                if (!storySnapshot.exists()) {
+                    println("Story không tồn tại: $storyId")
+                    return@mapNotNull null
+                }
+
+                // IN RA DỮ LIỆU GỐC ĐỂ DEBUG
+                println("DỮ LIỆU GỐC của $storyId: ${storySnapshot.data}")
 
                 val story = storySnapshot.toObject(Story::class.java)?.copy(id = storySnapshot.id)
-                if (story == null) return@mapNotNull null
+                if (story == null) {
+                    println("KHÔNG PARSE ĐƯỢC Story: $storyId")
+                    println("Lý do: Có field không map được trong model")
+                    return@mapNotNull null
+                }
 
-                // ⭐️ Tải chapters cho Story này
+                println("PARSE THÀNH CÔNG: $story")
+
                 val chapters = fetchChaptersForStory(storyId)
-
-                story.copy(chapters = chapters) // Cập nhật chapters
+                story.copy(chapters = chapters)
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            println("Lỗi khi tải $collection: ${e.message}")
             emptyList()
         }
     }
-
     // ===================== Chi tiết truyện (Đã sửa toMutableList()) =====================
     suspend fun fetchMangaDetail(mangaId: String): Story? {
         return try {

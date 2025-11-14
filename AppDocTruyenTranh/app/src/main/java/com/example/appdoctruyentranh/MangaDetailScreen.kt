@@ -68,7 +68,19 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryColor)
             )
         },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
+
+        bottomBar = { AppBottomNavigationBar(navController = navController) },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    navController.navigate("adminUpload?mangaId=$mangaId")                },
+                containerColor = PrimaryColor,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Thêm chương")
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End
     ) { paddingValues ->
         when {
             isLoading -> {
@@ -243,6 +255,37 @@ fun DetailSummarySection(
                     ),
                     border = BorderStroke(1.dp, TextSecondary.copy(alpha = 0.5f))
                 )
+            }
+        }
+    }
+    // Trong DetailSummarySection, thêm vào cuối Column
+    Spacer(modifier = Modifier.height(16.dp))
+
+// Chỉ hiện nếu là admin
+    val isAdmin = true // ← Thay bằng điều kiện thật của bạn
+
+    if (isAdmin) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            OutlinedButton(
+                onClick = { navController.navigate("editStory/${detail.id}") },
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Sửa truyện")
+            }
+
+            OutlinedButton(
+                onClick = { navController.navigate("adminUpload?mangaId=${detail.id}") },
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE91E63))
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Thêm chương")
             }
         }
     }

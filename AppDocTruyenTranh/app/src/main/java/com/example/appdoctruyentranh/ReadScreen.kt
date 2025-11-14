@@ -1,20 +1,18 @@
 @file:OptIn(
     ExperimentalMaterial3Api::class,
-    ExperimentalAnimationApi::class // Đảm bảo có ExperimentalAnimationApi
+    ExperimentalAnimationApi::class,
+    ExperimentalPagerApi::class
 )
 
 package com.example.appdoctruyentranh
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,38 +26,28 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.example.appdoctruyentranh.viewmodel.ChapterReaderViewModel
-import com.example.appdoctruyentranh.viewmodel.ReadingFont // Cần import từ ViewModel
-// BỔ SUNG CÁC IMPORT CẦN THIẾT
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import com.google.firebase.auth.FirebaseAuth
-// SỬ DỤNG PrimaryColor TỪ CommonComposables
-import com.example.appdoctruyentranh.PrimaryColor
+import com.example.appdoctruyentranh.viewmodel.ReadingFont
+import com.example.appdoctruyentranh.viewmodel.ReadingMode
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.PagerState
+import com.google.accompanist.pager.rememberPagerState
+import kotlinx.coroutines.launch
 
-// --- Mock Data ---
-val mockPages = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-const val MAX_CHAPTER_ID = 100 // Giả lập tổng số chương
-
-// Hàm helper để chuyển enum Font thành FontFamily (Giả định)
-@Composable
-fun getCustomFontFamily(readingFont: ReadingFont): FontFamily {
-    // Trong thực tế, bạn sẽ dùng font cụ thể trong R.font
-    return when (readingFont) {
-        ReadingFont.SERIF -> FontFamily.Serif
-        ReadingFont.SANS_SERIF -> FontFamily.SansSerif
-        else -> FontFamily.Default
-    }
-}
-
-// --- COMPOSABLE YÊU CẦU ĐĂNG NHẬP ---
+// =========================================================================
+// MÀN HÌNH ĐỌC TRUYỆN - HOÀN CHỈNH THEO MODEL MỚI
+// =========================================================================
 @Composable
 fun PleaseLoginScreen(navController: NavHostController, title: String) {
     Scaffold(
@@ -91,164 +79,279 @@ fun PleaseLoginScreen(navController: NavHostController, title: String) {
         }
     }
 }
-
-// =========================================================================
-// MÀN HÌNH CHÍNH: ReadScreen
-// =========================================================================
+@Composable
+fun getCustomFontFamily(readingFont: ReadingFont): FontFamily {
+    return when (readingFont) {
+        ReadingFont.SERIF -> FontFamily.Serif
+        ReadingFont.SANS_SERIF -> FontFamily.SansSerif
+        else -> FontFamily.Default
+    }
+}
 
 @Composable
 fun ReadScreen(
     navController: NavHostController,
-    mangaId: Int,
-    chapterId: Int,
+    mangaId: String,        // String từ Story.id
+    chapterId: String,      // String từ route → parse thành Int
     viewModel: ChapterReaderViewModel = viewModel()
 ) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
+    val chapterIdInt = remember(chapterId) { chapterId.toIntOrNull() ?: 1 }
 
-    if (currentUser == null) {
-        PleaseLoginScreen(navController = navController, title = "Đọc truyện")
-    } else {
-        // Giao diện cho người dùng đã đăng nhập
-        val isMenuVisible by viewModel.isMenuVisible.collectAsState()
-        val isDarkMode by viewModel.isDarkMode.collectAsState()
-        val currentFont by viewModel.currentFont.collectAsState()
-        val displayFontFamily = getCustomFontFamily(currentFont)
-        val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
-        var showReportDialog by remember { mutableStateOf(false) }
-        var showCommentDialog by remember { mutableStateOf(false) }
-        val listState = rememberLazyListState()
-        val progress: Float = remember { derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            if (layoutInfo.totalItemsCount == 0) 0f else {
-                val lastItemIndex = listState.firstVisibleItemIndex + listState.layoutInfo.visibleItemsInfo.size
-                (lastItemIndex).toFloat() / layoutInfo.totalItemsCount.toFloat()
+    val isMenuVisible by viewModel.isMenuVisible.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val currentFont by viewModel.currentFont.collectAsState()
+    val readingMode by viewModel.readingMode.collectAsState()
+    val displayFontFamily = getCustomFontFamily(currentFont)
+
+    val chapterData by viewModel.chapterData.collectAsState()
+    val story by viewModel.currentStory.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.errorMessage.collectAsState()
+
+    val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
+
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showCommentDialog by remember { mutableStateOf(false) }
+
+    // State cho LazyList và Pager
+    val listState = rememberLazyListState()
+    val pagerState = rememberPagerState()
+    val coroutineScope = rememberCoroutineScope()
+
+    // Tải chương
+    LaunchedEffect(mangaId, chapterIdInt) {
+        viewModel.loadChapter(mangaId, chapterIdInt)
+    }
+
+    // Loading
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = PrimaryColor)
+        }
+        return
+    }
+
+    // Error
+    error?.let {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(it, color = Color.Red, fontSize = 16.sp)
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.loadChapter(mangaId, chapterIdInt) },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                ) {
+                    Text("Thử lại")
+                }
             }
-        } }.value.coerceIn(0f, 1f)
+        }
+        return
+    }
 
+    // Không có trang
+    if (chapterData.pages.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Không có trang nào", color = Color.Gray)
+        }
+        return
+    }
 
-        Scaffold(
+    // Tính toán trang hiện tại
+    val currentPage = when (readingMode) {
+        ReadingMode.VERTICAL_SCROLL -> listState.firstVisibleItemIndex + 1
+        ReadingMode.HORIZONTAL_PAGINATION -> pagerState.currentPage + 1
+    }
+
+    // Lấy thông tin chương
+    val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
+    val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
+    val totalChapters = story?.chapters?.size ?: 1
+    val hasPrev = chapterIdInt > 1
+    val hasNext = chapterIdInt < totalChapters
+
+    // Nội dung chính
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgColor)
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor)
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(bgColor)
-                    .padding(paddingValues)
-            ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable { viewModel.toggleMenuVisibility() },
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    items(mockPages) { page ->
-                        MangaPagePlaceholder(
-                            page = page,
-                            isDarkMode = isDarkMode,
-                            fontFamily = displayFontFamily
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    item {
-                        Text(
-                            text = "--- Hết chương ${chapterId} ---",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(24.dp),
-                            fontFamily = displayFontFamily
-                        )
-                    }
+                .padding(paddingValues)
+        ) {
+            // Reader
+            when (readingMode) {
+                ReadingMode.VERTICAL_SCROLL -> {
+                    VerticalReader(
+                        pages = chapterData.pages,
+                        isDarkMode = isDarkMode,
+                        listState = listState,
+                        onToggleMenu = { viewModel.toggleMenuVisibility() }
+                    )
                 }
-                MenuTopBar(
-                    isVisible = isMenuVisible,
-                    title = "Chương $chapterId - Tên Truyện (ID: $mangaId)",
-                    onBack = { navController.popBackStack() },
-                    onSettingClick = { navController.navigate("settings") }
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) {
-                    MenuBottomBar(
-                        isVisible = isMenuVisible,
-                        chapterId = chapterId,
-                        progress = progress,
-                        onPrevClick = { viewModel.goToPreviousChapter(navController) },
-                        onNextClick = { viewModel.goToNextChapter(navController) },
-                        onToggleDarkMode = { viewModel.toggleDarkMode() },
-                        onReportClick = { showReportDialog = true },
-                        onCommentClick = { showCommentDialog = true },
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                ReadingMode.HORIZONTAL_PAGINATION -> {
+                    HorizontalPagerReader(
+                        pages = chapterData.pages,
+                        isDarkMode = isDarkMode,
+                        pagerState = pagerState,
+                        onToggleMenu = { viewModel.toggleMenuVisibility() }
                     )
                 }
             }
-        }
 
-        if (showReportDialog) {
-            SimpleAlertDialog(
-                title = "Báo cáo lỗi",
-                message = "Bạn muốn báo cáo lỗi về chương này (ảnh bị hỏng, lỗi dịch thuật)?\nTính năng này sẽ gửi báo cáo đến quản trị viên.",
-                onDismiss = { showReportDialog = false }
+            // Top Bar
+            MenuTopBar(
+                isVisible = isMenuVisible,
+                title = "${story?.title ?: "Truyện"} - $chapterTitle",
+                onBack = { navController.popBackStack() },
+                onSettingClick = { navController.navigate("settings") }
+            )
+
+            // Bottom Bar
+            MenuBottomBar(
+                isVisible = isMenuVisible,
+                chapterId = chapterIdInt,
+                totalChapters = totalChapters,
+                totalPages = chapterData.pages.size,
+                currentPage = currentPage.coerceAtMost(chapterData.pages.size),
+                hasPrev = hasPrev,
+                hasNext = hasNext,
+                onPrevClick = {
+                    if (hasPrev) {
+                        coroutineScope.launch {
+                            navController.navigate("read/$mangaId/${chapterIdInt - 1}")
+                        }
+                    }
+                },
+                onNextClick = {
+                    if (hasNext) {
+                        coroutineScope.launch {
+                            navController.navigate("read/$mangaId/${chapterIdInt + 1}")
+                        }
+                    }
+                },
+                onToggleDarkMode = { viewModel.toggleDarkMode() },
+                onReportClick = { showReportDialog = true },
+                onCommentClick = { showCommentDialog = true },
+                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
+    }
 
-        if (showCommentDialog) {
-            SimpleAlertDialog(
-                title = "Bình luận",
-                message = "Tính năng Bình luận sẽ được mở tại đây.",
-                onDismiss = { showCommentDialog = false }
-            )
-        }
+    // Dialogs
+    if (showReportDialog) {
+        SimpleAlertDialog(
+            title = "Báo cáo lỗi",
+            message = "Gửi báo cáo về chương này?",
+            onDismiss = { showReportDialog = false }
+        )
+    }
+
+    if (showCommentDialog) {
+        SimpleAlertDialog(
+            title = "Bình luận",
+            message = "Tính năng bình luận đang phát triển.",
+            onDismiss = { showCommentDialog = false }
+        )
     }
 }
 
 // =========================================================================
-// COMPONENTS
+// CHẾ ĐỘ CUỘN DỌC
 // =========================================================================
 
 @Composable
-fun MangaPagePlaceholder(page: Int, isDarkMode: Boolean, fontFamily: FontFamily) {
-    Card(
+fun VerticalReader(
+    pages: List<String>,
+    isDarkMode: Boolean,
+    listState: LazyListState,
+    onToggleMenu: () -> Unit
+) {
+    LazyColumn(
+        state = listState,
         modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .height(500.dp),
-        shape = RoundedCornerShape(4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDarkMode) Color(0xFF212121) else Color(0xFFF0F0F0)
-        )
+            .fillMaxSize()
+            .clickable(
+                onClick = onToggleMenu,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ),
+        contentPadding = PaddingValues(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.Image,
-                    contentDescription = "Trang truyện $page",
-                    tint = Color.Gray.copy(alpha = 0.5f),
-                    modifier = Modifier.size(64.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Trang $page",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    fontFamily = fontFamily
-                )
-
-                Text(
-                    text = "A A A",
-                    color = Color.Gray.copy(alpha = 0.5f),
-                    fontSize = 32.sp,
-                    fontFamily = fontFamily
-                )
-            }
+        items(pages) { imageUrl ->
+            MangaPageImage(imageUrl = imageUrl, isDarkMode = isDarkMode)
+            Spacer(Modifier.height(2.dp))
+        }
+        item {
+            Text(
+                text = "--- Hết chương ---",
+                color = Color.Gray,
+                modifier = Modifier.padding(24.dp),
+                fontSize = 14.sp
+            )
         }
     }
 }
+
+// =========================================================================
+// CHẾ ĐỘ LẬT NGANG
+// =========================================================================
+
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+fun HorizontalPagerReader(
+    pages: List<String>,
+    isDarkMode: Boolean,
+    pagerState: PagerState,
+    onToggleMenu: () -> Unit
+) {
+    HorizontalPager(
+        count = pages.size,
+        state = pagerState,
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                onClick = onToggleMenu,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            )
+    ) { pageIndex ->
+        MangaPageImage(imageUrl = pages[pageIndex], isDarkMode = isDarkMode)
+    }
+}
+
+// =========================================================================
+// HIỂN THỊ ẢNH TRANG
+// =========================================================================
+
+@Composable
+fun MangaPageImage(imageUrl: String, isDarkMode: Boolean) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .heightIn(min = 400.dp, max = 900.dp),
+        shape = RoundedCornerShape(4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDarkMode) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
+        )
+    ) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = "Trang truyện",
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isDarkMode) Color.Black else Color.White),
+            contentScale = ContentScale.Fit
+        )
+    }
+}
+
+// =========================================================================
+// MENU TOP & BOTTOM
+// =========================================================================
 
 @Composable
 fun MenuTopBar(
@@ -265,7 +368,7 @@ fun MenuTopBar(
         TopAppBar(
             title = {
                 Text(
-                    title,
+                    text = title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
@@ -274,21 +377,18 @@ fun MenuTopBar(
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                 }
             },
             actions = {
                 IconButton(onClick = onSettingClick) {
-                    Icon(Icons.Default.Settings, contentDescription = "Cài đặt đọc", tint = Color.White)
+                    Icon(Icons.Default.Settings, "Cài đặt", tint = Color.White)
                 }
-                IconButton(onClick = { /* Xử lý tải xuống */ }) {
-                    Icon(Icons.Default.Download, contentDescription = "Tải xuống", tint = Color.White)
+                IconButton(onClick = { /* Download */ }) {
+                    Icon(Icons.Default.Download, "Tải xuống", tint = Color.White)
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = PrimaryColor.copy(alpha = 0.95f),
-                titleContentColor = Color.White
-            )
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryColor.copy(alpha = 0.95f))
         )
     }
 }
@@ -297,7 +397,11 @@ fun MenuTopBar(
 fun MenuBottomBar(
     isVisible: Boolean,
     chapterId: Int,
-    progress: Float,
+    totalChapters: Int,
+    totalPages: Int,
+    currentPage: Int,
+    hasPrev: Boolean,
+    hasNext: Boolean,
     onPrevClick: () -> Unit,
     onNextClick: () -> Unit,
     onToggleDarkMode: () -> Unit,
@@ -321,86 +425,58 @@ fun MenuBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Trang: ${((progress * mockPages.size).toInt() + 1).coerceAtMost(mockPages.size)}/${mockPages.size}",
-                    color = Color.White,
-                    fontSize = 12.sp
-                )
-                Text(
-                    text = "Chương $chapterId",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text("Trang: $currentPage/$totalPages", color = Color.White, fontSize = 12.sp)
+                Text("Chương $chapterId/$totalChapters", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
 
-            Slider(
-                value = progress,
-                onValueChange = { /* TODO: Xử lý thay đổi trang bằng thanh trượt (chuyển listState) */ },
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.White,
-                    activeTrackColor = Color.White.copy(alpha = 0.8f),
-                    inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            Spacer(Modifier.height(4.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceAround
             ) {
-                IconButton(
-                    onClick = onPrevClick,
-                    enabled = chapterId > 1
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Chương trước", tint = if (chapterId > 1) Color.White else Color.White.copy(alpha = 0.5f))
+                IconButton(onClick = onPrevClick, enabled = hasPrev) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Chương trước", tint = if (hasPrev) Color.White else Color.White.copy(0.5f))
                 }
                 IconButton(onClick = onToggleDarkMode) {
-                    Icon(Icons.Default.DarkMode, contentDescription = "Chế độ tối", tint = Color.White)
+                    Icon(Icons.Default.DarkMode, "Dark mode", tint = Color.White)
                 }
                 IconButton(onClick = onReportClick) {
-                    Icon(Icons.Default.Report, contentDescription = "Báo cáo lỗi", tint = Color.White)
+                    Icon(Icons.Default.Report, "Báo cáo", tint = Color.White)
                 }
                 IconButton(onClick = onCommentClick) {
-                    Icon(Icons.Default.Comment, contentDescription = "Bình luận", tint = Color.White)
+                    Icon(Icons.Default.Comment, "Bình luận", tint = Color.White)
                 }
-                IconButton(
-                    onClick = onNextClick,
-                    enabled = chapterId < MAX_CHAPTER_ID
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Chương sau", tint = if (chapterId < MAX_CHAPTER_ID) Color.White else Color.White.copy(alpha = 0.5f))
+                IconButton(onClick = onNextClick, enabled = hasNext) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Chương sau", tint = if (hasNext) Color.White else Color.White.copy(0.5f))
                 }
             }
         }
     }
 }
 
+// =========================================================================
+// DIALOG
+// =========================================================================
+
 @Composable
 fun SimpleAlertDialog(title: String, message: String, onDismiss: () -> Unit) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
-    ) {
-        Card(
-            modifier = Modifier.padding(24.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(Color.White)) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = PrimaryColor)
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
                 Text(message, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(Modifier.height(24.dp))
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    colors = ButtonDefaults.buttonColors(PrimaryColor)
                 ) {
                     Text("Đóng")
                 }

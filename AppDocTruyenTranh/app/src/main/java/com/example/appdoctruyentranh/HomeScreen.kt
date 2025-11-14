@@ -1,6 +1,7 @@
 // File: HomeScreen.kt
 package com.example.appdoctruyentranh
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,7 +39,9 @@ import com.example.appdoctruyentranh.viewmodel.HomeViewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import com.example.appdoctruyentranh.model.Chapter
 
@@ -85,7 +88,7 @@ fun HomeScreen(
                 ) {
                     // 1. Banner
                     if (data.banners.isNotEmpty()) {
-                        item { SectionHeader("Đề xuất") }
+                        item { SectionHeader("Đề xuất", navController) }
                         item {
                             HomeBannerCarousel(
                                 banners = data.banners,
@@ -109,6 +112,23 @@ fun HomeScreen(
                     data.completedStories.takeIf { it.isNotEmpty() }?.let { list ->
                         item { StorySection("Truyện Hoàn Thành", list, navController) }
                     } ?: item { EmptySectionPlaceholder("Truyện Hoàn Thành") }
+                    // 5. Được yêu thích
+                    // 5. Được Yêu Thích
+                    data.favorites.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { StorySection("Được Yêu Thích", list, navController) }
+                    } ?: item { EmptySectionPlaceholder("Được Yêu Thích") }
+
+                    // 6. Đang Thịnh Hành
+                    data.trending.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { StorySection("Đang Thịnh Hành", list, navController) }
+                    } ?: item { EmptySectionPlaceholder("Đang Thịnh Hành") }
+
+                    // 7. Đang Ra Mắt
+                    data.newReleases.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { StorySection("Đang Ra Mắt", list, navController) }
+                    } ?: item { EmptySectionPlaceholder("Đang Ra Mắt") }
+
+
                 }
             }
         }
@@ -124,6 +144,7 @@ private fun HomeUiState.toUiState(): com.example.appdoctruyentranh.model.UiState
         com.example.appdoctruyentranh.model.UiState.Empty
     else -> com.example.appdoctruyentranh.model.UiState.Success(this)
 }
+
 
 @Composable
 fun EmptySectionPlaceholder(title: String) {
@@ -144,7 +165,7 @@ fun EmptySectionPlaceholder(title: String) {
 }
 
 @Composable
-fun SectionHeader(title: String) {
+fun SectionHeader(title: String, navController: NavHostController? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -153,19 +174,30 @@ fun SectionHeader(title: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+
         Text(
             "Xem tất cả",
             color = PrimaryColor,
             fontSize = 14.sp,
-            modifier = Modifier.clickable { /* TODO */ }
+            modifier = Modifier.clickable {
+                navController?.navigate("story_list/${title}")
+            }
         )
     }
 }
 
 @Composable
 fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
+    val page = remember { mutableStateOf(0) }
     val pageCount = banners.size
-    val pagerState = remember { mutableStateOf(0) }
+
+    // ⭐ Auto slide banner mỗi 3 giây
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(3000)
+            page.value = (page.value + 1) % pageCount
+        }
+    }
 
     Column {
         LazyRow(
@@ -174,20 +206,23 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             itemsIndexed(banners) { index, story ->
+
+                val scale by animateFloatAsState(
+                    targetValue = if (index == page.value) 1f else 0.85f
+                )
+
                 Card(
                     modifier = Modifier
-                        .width(320.dp)
+                        .width(320.dp * scale)
                         .fillMaxHeight()
-                        .clickable { onBannerClick(story) },
+                        .clickable { onBannerClick(story) }
+                        .graphicsLayer { scaleX = scale; scaleY = scale },
                     shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(8.dp)
+                    elevation = CardDefaults.cardElevation(10.dp)
                 ) {
                     Box {
                         Image(
-                            painter = rememberAsyncImagePainter(
-                                model = story.imageUrl,
-                                placeholder = painterResource(android.R.drawable.ic_menu_gallery)
-                            ),
+                            painter = rememberAsyncImagePainter(model = story.imageUrl),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -195,7 +230,7 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.4f))
+                                .background(Color.Black.copy(alpha = 0.3f))
                         )
                         Column(
                             modifier = Modifier
@@ -223,7 +258,7 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
             }
         }
 
-        // Dấu chấm chỉ trang
+        // ⭐ Indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -233,10 +268,10 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
             repeat(pageCount) { index ->
                 Box(
                     modifier = Modifier
-                        .size(if (index == pagerState.value) 10.dp else 6.dp)
+                        .size(if (index == page.value) 10.dp else 6.dp)
                         .clip(CircleShape)
-                        .background(if (index == pagerState.value) PrimaryColor else Color.LightGray)
-                        .clickable { pagerState.value = index }
+                        .background(if (index == page.value) PrimaryColor else Color.LightGray)
+                        .clickable { page.value = index }
                 )
                 if (index < pageCount - 1) Spacer(Modifier.width(6.dp))
             }
@@ -247,7 +282,7 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
 @Composable
 fun StorySection(title: String, stories: List<Story>, navController: NavHostController) {
     Column {
-        SectionHeader(title)
+        SectionHeader(title, navController)
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -261,6 +296,7 @@ fun StorySection(title: String, stories: List<Story>, navController: NavHostCont
         Spacer(Modifier.height(16.dp))
     }
 }
+
 
 @Composable
 fun StoryCard(story: Story, onClick: () -> Unit) {

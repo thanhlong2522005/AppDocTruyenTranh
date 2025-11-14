@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
 }
 
 // Nơi quản lý tất cả các màn hình
+
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -90,6 +91,32 @@ fun AppNavigation() {
         composable("history") {
             HistoryScreen(navController = navController)
         }
+        composable(
+            "adminUpload?mangaId={mangaId}",
+            arguments = listOf(
+                navArgument("mangaId") {
+                    defaultValue = ""
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val mangaId = backStackEntry.arguments?.getString("mangaId")
+            AdminUploadScreen(navController = navController, preselectedMangaId = mangaId)
+        }
+        composable(
+            "editStory/{mangaId}",
+            arguments = listOf(navArgument("mangaId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val mangaId = backStackEntry.arguments?.getString("mangaId")!!
+            EditStoryScreen(navController = navController, mangaId = mangaId)
+        }
+
+        composable("story_list/{title}") { backStackEntry ->
+            val title = backStackEntry.arguments?.getString("title") ?: ""
+            AllStoriesScreen(title, navController = navController)
+        }
+
+
 
         // 11. Màn hình Thể loại
         composable("genre") {
@@ -147,11 +174,11 @@ fun AppNavigation() {
             route = "read/{mangaId}/{chapterId}",
             arguments = listOf(
                 navArgument("mangaId") { type = NavType.StringType },
-                navArgument("chapterId") { type = NavType.IntType }
+                navArgument("chapterId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val mangaId = backStackEntry.arguments?.getInt("mangaId") ?: 0
-            val chapterId = backStackEntry.arguments?.getInt("chapterId") ?: 0
+            val mangaId = backStackEntry.arguments?.getString("mangaId") ?: return@composable
+            val chapterId = backStackEntry.arguments?.getString("chapterId") ?: "1"
             ReadScreen(navController = navController, mangaId = mangaId, chapterId = chapterId)
         }
 

@@ -1,39 +1,145 @@
 package com.example.appdoctruyentranh.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.example.appdoctruyentranh.model.Chapter
+import com.example.appdoctruyentranh.model.Story
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-// Định nghĩa các hằng số cho Font và Mode
+// --- Enums ---
 enum class ReadingMode { VERTICAL_SCROLL, HORIZONTAL_PAGINATION }
-enum class ReadingFont(val fontName: String) { DEFAULT("Default"), SERIF("Serif"), SANS_SERIF("Sans Serif") }
+enum class ReadingFont(val fontName: String) {
+    DEFAULT("Default"), SERIF("Serif"), SANS_SERIF("Sans Serif")
+}
+
+data class ChapterData(
+    val pages: List<String> = emptyList(),
+    val totalPages: Int = 0
+)
 
 class ChapterReaderViewModel : ViewModel() {
 
-    // --- Trạng thái UI cơ bản ---
+    // --- UI State ---
     private val _isMenuVisible = MutableStateFlow(false)
     val isMenuVisible: StateFlow<Boolean> = _isMenuVisible.asStateFlow()
 
     private val _isDarkMode = MutableStateFlow(false)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
-    // --- Trạng thái tùy chỉnh đọc (Nhiệm vụ Thành viên 3) ---
     private val _currentFont = MutableStateFlow(ReadingFont.DEFAULT)
     val currentFont: StateFlow<ReadingFont> = _currentFont.asStateFlow()
 
     private val _readingMode = MutableStateFlow(ReadingMode.VERTICAL_SCROLL)
     val readingMode: StateFlow<ReadingMode> = _readingMode.asStateFlow()
 
+    // --- Dữ liệu hiện tại ---
+    private val _currentStory = MutableStateFlow<Story?>(null)
+    val currentStory: StateFlow<Story?> = _currentStory.asStateFlow()
 
+    private val _currentChapter = MutableStateFlow<Chapter?>(null)
+    val currentChapter: StateFlow<Chapter?> = _currentChapter.asStateFlow()
+
+    private val _chapterData = MutableStateFlow(ChapterData())
+    val chapterData: StateFlow<ChapterData> = _chapterData.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // --- Cache ---
+    private val chapterCache = mutableMapOf<String, ChapterData>()
+
+    // --- Tải chương (mangaId: String, chapterNumber: Int) ---
+
+    fun loadChapter(mangaId: String, chapterNumber: Int) {
+        val cacheKey = "${mangaId}_$chapterNumber"
+        _errorMessage.value = null
+        if (chapterCache.containsKey(cacheKey)) {
+            Log.d("ChapterReader", "Dùng cache cho $cacheKey")
+            _chapterData.value = chapterCache[cacheKey]!!
+            _isLoading.value = false
+            return
+        }
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+
+            try {
+                val db = FirebaseFirestore.getInstance()
+
+                // 1. Lấy Story
+                val storyDoc = db.collection("stories")
+                    .document(mangaId)
+                    .get()
+                    .await()
+
+                if (!storyDoc.exists()) {
+                    Log.e("ChapterReader", "Không tìm thấy truyện với ID: $mangaId")
+                    _errorMessage.value = "Truyện không tồn tại"
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                Log.d("ChapterReader", "Story raw data: ${storyDoc.data}")
+                val story = storyDoc.toObject(Story::class.java)?.apply { id = mangaId }
+                _currentStory.value = story
+
+                // 2. Lấy Chapter
+                val chapterDoc = db.collection("stories")
+                    .document(mangaId)
+                    .collection("chapters")
+                    .document(chapterNumber.toString())
+                    .get()
+                    .await()
+
+                if (!chapterDoc.exists()) {
+                    Log.e("ChapterReader", "Không tìm thấy chương $chapterNumber")
+                    _errorMessage.value = "Chương $chapterNumber không tồn tại"
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                Log.d("ChapterReader", "Chapter raw data: ${chapterDoc.data}")
+                val chapter = chapterDoc.toObject(Chapter::class.java)?.apply { number = chapterNumber }
+                _currentChapter.value = chapter
+
+                Log.d("ChapterReader", "Chapter pages: ${chapter?.pages}")
+                val pages = chapter?.pages ?: emptyList()
+                val chapterData = ChapterData(pages = pages, totalPages = pages.size)
+                _chapterData.value = chapterData
+                chapterCache[cacheKey] = chapterData
+
+            } catch (e: Exception) {
+                Log.e("ChapterReader", "Lỗi khi tải chương: ${e.message}", e)
+                _errorMessage.value = e.message ?: "Lỗi tải dữ liệu"
+                _chapterData.value = ChapterData()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+
+    // --- Xóa lỗi ---
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
+    // --- UI Actions ---
     fun toggleMenuVisibility() {
-        _isMenuVisible.value = !_isMenuVisible.value
+        _isMenuVisible.update { !it }
     }
 
     fun toggleDarkMode() {
-        _isDarkMode.value = !_isDarkMode.value
+        _isDarkMode.update { !it }
     }
 
     fun setReadingFont(font: ReadingFont) {
@@ -44,43 +150,35 @@ class ChapterReaderViewModel : ViewModel() {
         _readingMode.value = mode
     }
 
-    // --- Logic Chuyển chương ---
-    fun goToNextChapter(navController: NavHostController) {
-        val currentRoute = navController.currentBackStackEntry?.destination?.route ?: return
-        val regex = Regex("read/(\\d+)/(\\d+)")
-        val match = regex.find(currentRoute) ?: return
+    // --- Chuyển chương ---
+    fun goToNextChapter(navController: NavHostController, mangaId: String, currentChapterNumber: Int) {
+        val story = _currentStory.value ?: return
+        val maxChapter = story.chapters.maxOfOrNull { it.number } ?: currentChapterNumber
+        val nextChapter = currentChapterNumber + 1
 
-        val mangaId = match.groupValues[1].toIntOrNull() ?: return
-        val currentChapterId = match.groupValues[2].toIntOrNull() ?: return
-
-        val nextChapterId = currentChapterId + 1
-
-        if (nextChapterId <= 100) { // Giả lập tối đa 100 chương
-            navController.navigate("read/$mangaId/$nextChapterId") {
-                launchSingleTop = true
-            }
-        } else {
-            // Hiển thị thông báo: Hết chương
-            // Trong thực tế, cần dùng Toast hoặc State để hiển thị trong UI
+        if (nextChapter <= maxChapter) {
+            navigateToChapter(navController, mangaId, nextChapter)
         }
     }
 
-    fun goToPreviousChapter(navController: NavHostController) {
-        val currentRoute = navController.currentBackStackEntry?.destination?.route ?: return
-        val regex = Regex("read/(\\d+)/(\\d+)")
-        val match = regex.find(currentRoute) ?: return
-
-        val mangaId = match.groupValues[1].toIntOrNull() ?: return
-        val currentChapterId = match.groupValues[2].toIntOrNull() ?: return
-
-        val prevChapterId = currentChapterId - 1
-
-        if (prevChapterId >= 1) { // Giả lập chương tối thiểu là 1
-            navController.navigate("read/$mangaId/$prevChapterId") {
-                launchSingleTop = true
-            }
-        } else {
-            // Hiển thị thông báo: Chương đầu tiên
+    fun goToPreviousChapter(navController: NavHostController, mangaId: String, currentChapterNumber: Int) {
+        val prevChapter = currentChapterNumber - 1
+        if (prevChapter >= 1) {
+            navigateToChapter(navController, mangaId, prevChapter)
         }
+    }
+
+    private fun navigateToChapter(navController: NavHostController, mangaId: String, chapterNumber: Int) {
+        navController.navigate("read/$mangaId/$chapterNumber") {
+            popUpTo(navController.graph.startDestinationId) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    // --- Dọn dẹp ---
+    override fun onCleared() {
+        super.onCleared()
+        chapterCache.clear()
     }
 }
