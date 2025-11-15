@@ -28,20 +28,27 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.model.StoryItem
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.SearchViewModel
 
 @Composable
 fun SearchScreen(navController: NavHostController) {
     val viewModel: SearchViewModel = viewModel()
+    val authViewModel: AuthViewModel = viewModel()
     val query by viewModel.searchQuery.collectAsState()
     val genreId by viewModel.selectedGenreId.collectAsState()
     val results by viewModel.searchResults.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(Unit) {
+        authViewModel.checkAdminStatus()
+    }
 
     Scaffold(
         topBar = {
@@ -59,7 +66,7 @@ fun SearchScreen(navController: NavHostController) {
                 }
             )
         },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
+        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
     ) { innerPadding ->
         Column(
             modifier = Modifier

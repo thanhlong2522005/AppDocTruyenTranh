@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import com.example.appdoctruyentranh.model.Chapter
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 
 val BannerHeight = 200.dp
 var chapters = mutableStateListOf<Chapter>()
@@ -54,15 +55,21 @@ val totalChapters: Int
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.checkAdminStatus()
+    }
 
     Scaffold(
         topBar = { AppHeader() },
-        bottomBar = { AppBottomNavigationBar(navController) }
+        bottomBar = { AppBottomNavigationBar(navController, isAdmin = isAdmin) }
     ) { paddingValues ->
 
         PullToRefreshBox(

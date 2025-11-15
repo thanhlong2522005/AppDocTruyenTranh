@@ -2,11 +2,10 @@ package com.example.appdoctruyentranh
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,233 +13,317 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.appdoctruyentranh.model.Chapter
 import com.example.appdoctruyentranh.model.Genre
 import com.example.appdoctruyentranh.model.Story
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.UploadViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: String? = null) {
-    val viewModel: UploadViewModel = viewModel()
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val authViewModel: AuthViewModel = viewModel()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
 
-    var selectedMode by remember { mutableStateOf(if (preselectedMangaId != null) 1 else 0) }
-    val tabs = listOf("Thêm truyện mới", "Thêm chương")
-
-    // === Form: Thêm/Sửa truyện ===
-    var title by remember { mutableStateOf("") }
-    var author by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var coverImageUrl by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Đang ra") }
-
-    // Genres
-    val allGenres = remember { mutableStateListOf<Genre>() }
-    val selectedGenreIds = remember { mutableStateListOf<String>() }
-
-    // Display lists (collection names)
-    val selectedDisplayLists = remember { mutableStateOf(setOf<String>()) }
-
-    // === Form: Thêm chương ===
-    var selectedStoryId by remember { mutableStateOf<String?>(preselectedMangaId) }
-    var selectedStoryTitle by remember { mutableStateOf("Chọn truyện") }
-    var chapterNumber by remember { mutableStateOf("") }
-    var chapterTitle by remember { mutableStateOf("") }
-    var pageUrls by remember { mutableStateOf("") }
-    var showStoryDropdown by remember { mutableStateOf(false) }
-
-    val allStories = remember { mutableStateListOf<Story>() }
-    var isLoading by remember { mutableStateOf(false) }
-
-    // Load data
     LaunchedEffect(Unit) {
-        viewModel.getAllStories { stories ->
-            allStories.clear()
-            allStories.addAll(stories)
-            // Nếu có preselected → tìm tiêu đề
-            preselectedMangaId?.let { id ->
-                stories.find { it.id == id }?.let { story ->
-                    selectedStoryTitle = story.title
-                }
-            }
-        }
-        viewModel.getGenres { genres ->
-            allGenres.clear()
-            allGenres.addAll(genres)
-        }
+        authViewModel.checkAdminStatus()
     }
 
-    // Nếu đang sửa truyện → load dữ liệu
-    LaunchedEffect(preselectedMangaId) {
-        if (preselectedMangaId != null && selectedMode == 0) {
-            viewModel.getStoryById(preselectedMangaId) { story ->
-                story?.let {
-                    title = it.title
-                    author = it.author
-                    description = it.description
-                    coverImageUrl = it.imageUrl
-                    status = it.status
-                    selectedGenreIds.clear()
-                    selectedGenreIds.addAll(allGenres.filter { g -> it.genres.contains(g.name) }.map { g -> g.id.toString() })
-                }
-            }
-
-            // Load display lists
-            val displayCollections = listOf(
-                "banners", "new_updates", "most_viewed", "completed_stories",
-                "favorites", "trending_list", "new_releases"
-            )
-            val currentLists = mutableSetOf<String>()
-            displayCollections.forEach { collectionName ->
-                viewModel.isInDisplayList(collectionName, preselectedMangaId) { isIn ->
-                    if (isIn) currentLists.add(collectionName)
-                }
-            }
-            selectedDisplayLists.value = currentLists
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Background
-        AsyncImage(
-            model = "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80",
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = 0.3f
-        )
-
+    if (!isAdmin) {
+        // Giao diện khi không có quyền truy cập
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("Quản trị - Upload", fontWeight = FontWeight.Bold) },
+                 TopAppBar(
+                    title = { Text("Lỗi truy cập") },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xCC1976D2))
+                    }
                 )
-            },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            containerColor = Color.Transparent
+            }
         ) { padding ->
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item {
-                    TabRow(selectedTabIndex = selectedMode, containerColor = Color(0x221976D2)) {
-                        tabs.forEachIndexed { index, tabTitle ->
-                            Tab(
-                                selected = selectedMode == index,
-                                onClick = {
-                                    selectedMode = index
-                                    // Reset form
-                                    title = ""; author = ""; description = ""; coverImageUrl = ""
-                                    chapterNumber = ""; chapterTitle = ""; pageUrls = ""
-                                    selectedGenreIds.clear()
-                                    selectedDisplayLists.value = emptySet()
-                                },
-                                text = { Text(tabTitle, color = if (selectedMode == index) MaterialTheme.colorScheme.primary else Color.Gray) }
-                            )
-                        }
+                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(100.dp), tint = Color.Red)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Bạn không có quyền truy cập vào chức năng này!", textAlign = TextAlign.Center, fontSize = 18.sp)
+            }
+        }
+    } else {
+        // ========================================================
+        // BẮT ĐẦU GIAO DIỆN ADMIN BÌNH THƯỜNG (MÃ NGUỒN CŨ CỦA BẠN)
+        // ========================================================
+        val viewModel: UploadViewModel = viewModel()
+        val scope = rememberCoroutineScope()
+        val snackbarHostState = remember { SnackbarHostState() }
+
+        var selectedMode by remember { mutableStateOf(if (preselectedMangaId != null) 1 else 0) }
+        val tabs = listOf("Thêm truyện mới", "Thêm chương")
+
+        // === Form: Thêm/Sửa truyện ===
+        var title by remember { mutableStateOf("") }
+        var author by remember { mutableStateOf("") }
+        var description by remember { mutableStateOf("") }
+        var coverImageUrl by remember { mutableStateOf("") }
+        var status by remember { mutableStateOf("Đang ra") }
+
+        val allGenres = remember { mutableStateListOf<Genre>() }
+        val selectedGenreIds = remember { mutableStateListOf<String>() }
+
+        val selectedDisplayLists = remember { mutableStateOf(setOf<String>()) }
+
+        // === Form: Thêm chương ===
+        var selectedStoryId by remember { mutableStateOf<String?>(preselectedMangaId) }
+        var selectedStoryTitle by remember { mutableStateOf("Chọn truyện") }
+        var chapterNumber by remember { mutableStateOf("") }
+        var chapterTitle by remember { mutableStateOf("") }
+        var pageUrls by remember { mutableStateOf("") }
+        var showStoryDropdown by remember { mutableStateOf(false) }
+
+        val allStories = remember { mutableStateListOf<Story>() }
+        var isLoading by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            viewModel.getAllStories { stories ->
+                allStories.clear()
+                allStories.addAll(stories)
+                preselectedMangaId?.let { id ->
+                    stories.find { it.id == id }?.let { story ->
+                        selectedStoryTitle = story.title
+                    }
+                }
+            }
+            viewModel.getGenres { genres ->
+                allGenres.clear()
+                allGenres.addAll(genres)
+            }
+        }
+
+        LaunchedEffect(preselectedMangaId) {
+            if (preselectedMangaId != null && selectedMode == 0) {
+                viewModel.getStoryById(preselectedMangaId) { story ->
+                    story?.let {
+                        title = it.title
+                        author = it.author
+                        description = it.description
+                        coverImageUrl = it.imageUrl
+                        status = it.status
+                        selectedGenreIds.clear()
+                        selectedGenreIds.addAll(allGenres.filter { g -> it.genres.contains(g.name) }.map { g -> g.id.toString() })
                     }
                 }
 
-                when (selectedMode) {
-                    0 -> item {
-                        UploadStoryForm(
-                            title = title, onTitleChange = { title = it },
-                            author = author, onAuthorChange = { author = it },
-                            description = description, onDescriptionChange = { description = it },
-                            coverImageUrl = coverImageUrl, onCoverImageChange = { coverImageUrl = it },
-                            status = status, onStatusChange = { status = it },
-                            allGenres = allGenres,
-                            selectedGenreIds = selectedGenreIds,
-                            onGenreToggle = { genreId ->
-                                if (selectedGenreIds.contains(genreId)) {
-                                    selectedGenreIds.remove(genreId)
-                                } else {
-                                    selectedGenreIds.add(genreId)
-                                }
-                            },
-                            selectedDisplayLists = selectedDisplayLists.value,
-                            onDisplayListToggle = { listName ->
-                                selectedDisplayLists.value = if (selectedDisplayLists.value.contains(listName)) {
-                                    selectedDisplayLists.value - listName
-                                } else {
-                                    selectedDisplayLists.value + listName
-                                }
-                            },
-                            isLoading = isLoading,
-                            isEditMode = preselectedMangaId != null,
-                            onSubmit = {
-                                if (title.isBlank() || author.isBlank() || coverImageUrl.isBlank()) {
-                                    scope.launch { snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ tên, tác giả và ảnh bìa") }
-                                    return@UploadStoryForm
-                                }
-                                if (selectedGenreIds.isEmpty()) {
-                                    scope.launch { snackbarHostState.showSnackbar("Chọn ít nhất 1 thể loại") }
-                                    return@UploadStoryForm
-                                }
+                val displayCollections = listOf(
+                    "banners", "new_updates", "most_viewed", "completed_stories",
+                    "favorites", "trending_list", "new_releases"
+                )
+                val currentLists = mutableSetOf<String>()
+                displayCollections.forEach { collectionName ->
+                    viewModel.isInDisplayList(collectionName, preselectedMangaId) { isIn ->
+                        if (isIn) currentLists.add(collectionName)
+                    }
+                }
+                selectedDisplayLists.value = currentLists
+            }
+        }
 
-                                isLoading = true
-                                val selectedGenreNames = allGenres
-                                    .filter { selectedGenreIds.contains(it.id.toString()) }
-                                    .map { it.name }
+        Box(modifier = Modifier.fillMaxSize()) {
+            AsyncImage(
+                model = "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80",
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.3f
+            )
 
-                                val newStory = Story(
-                                    id = preselectedMangaId ?: "",
-                                    title = title.trim(),
-                                    author = author.trim(),
-                                    description = description.trim(),
-                                    status = status
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Quản trị - Upload", fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xCC1976D2))
+                    )
+                },
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                containerColor = Color.Transparent
+            ) { padding ->
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                ) {
+                    item {
+                        TabRow(selectedTabIndex = selectedMode, containerColor = Color(0x221976D2)) {
+                            tabs.forEachIndexed { index, tabTitle ->
+                                Tab(
+                                    selected = selectedMode == index,
+                                    onClick = {
+                                        selectedMode = index
+                                        title = ""; author = ""; description = ""; coverImageUrl = ""
+                                        chapterNumber = ""; chapterTitle = ""; pageUrls = ""
+                                        selectedGenreIds.clear()
+                                        selectedDisplayLists.value = emptySet()
+                                    },
+                                    text = { Text(tabTitle, color = if (selectedMode == index) MaterialTheme.colorScheme.primary else Color.Gray) }
                                 )
+                            }
+                        }
+                    }
 
-                                if (preselectedMangaId != null) {
-                                    // Sửa truyện
-                                    viewModel.updateStory(
-                                        story = newStory,
-                                        imageUrl = coverImageUrl,
-                                        selectedGenreNames = selectedGenreNames,
-                                        displayLists = selectedDisplayLists.value,
+                    when (selectedMode) {
+                        0 -> item {
+                            UploadStoryForm(
+                                title = title, onTitleChange = { title = it },
+                                author = author, onAuthorChange = { author = it },
+                                description = description, onDescriptionChange = { description = it },
+                                coverImageUrl = coverImageUrl, onCoverImageChange = { coverImageUrl = it },
+                                status = status, onStatusChange = { status = it },
+                                allGenres = allGenres,
+                                selectedGenreIds = selectedGenreIds,
+                                onGenreToggle = { genreId ->
+                                    if (selectedGenreIds.contains(genreId)) {
+                                        selectedGenreIds.remove(genreId)
+                                    } else {
+                                        selectedGenreIds.add(genreId)
+                                    }
+                                },
+                                selectedDisplayLists = selectedDisplayLists.value,
+                                onDisplayListToggle = { listName ->
+                                    selectedDisplayLists.value = if (selectedDisplayLists.value.contains(listName)) {
+                                        selectedDisplayLists.value - listName
+                                    } else {
+                                        selectedDisplayLists.value + listName
+                                    }
+                                },
+                                isLoading = isLoading,
+                                isEditMode = preselectedMangaId != null,
+                                onSubmit = {
+                                    if (title.isBlank() || author.isBlank() || coverImageUrl.isBlank()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ tên, tác giả và ảnh bìa") }
+                                        return@UploadStoryForm
+                                    }
+                                    if (selectedGenreIds.isEmpty()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Chọn ít nhất 1 thể loại") }
+                                        return@UploadStoryForm
+                                    }
+
+                                    isLoading = true
+                                    val selectedGenreNames = allGenres
+                                        .filter { selectedGenreIds.contains(it.id.toString()) }
+                                        .map { it.name }
+
+                                    val newStory = Story(
+                                        id = preselectedMangaId ?: "",
+                                        title = title.trim(),
+                                        author = author.trim(),
+                                        description = description.trim(),
+                                        status = status
+                                    )
+
+                                    if (preselectedMangaId != null) {
+                                        viewModel.updateStory(
+                                            story = newStory,
+                                            imageUrl = coverImageUrl,
+                                            selectedGenreNames = selectedGenreNames,
+                                            displayLists = selectedDisplayLists.value,
+                                            onSuccess = {
+                                                isLoading = false
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Cập nhật truyện thành công!")
+                                                    navController.popBackStack()
+                                                }
+                                            },
+                                            onError = {
+                                                isLoading = false
+                                                scope.launch { snackbarHostState.showSnackbar("Lỗi: ${it.message}") }
+                                            }
+                                        )
+                                    } else {
+                                        viewModel.createStory(
+                                            story = newStory,
+                                            imageUrl = coverImageUrl,
+                                            selectedGenreNames = selectedGenreNames,
+                                            displayLists = selectedDisplayLists.value,
+                                            onSuccess = { storyId ->
+                                                isLoading = false
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Thêm truyện thành công!")
+                                                    title = ""; author = ""; description = ""; coverImageUrl = ""
+                                                    selectedGenreIds.clear()
+                                                    selectedDisplayLists.value = emptySet()
+                                                }
+                                            },
+                                            onError = {
+                                                isLoading = false
+                                                scope.launch { snackbarHostState.showSnackbar("Lỗi: ${it.message}") }
+                                            }
+                                        )
+                                    }
+                                }
+                            )
+                        }
+
+                        1 -> item {
+                            UploadChapterForm(
+                                stories = allStories,
+                                selectedStoryTitle = selectedStoryTitle,
+                                onStorySelected = { story ->
+                                    selectedStoryId = story.id
+                                    selectedStoryTitle = story.title
+                                    showStoryDropdown = false
+                                },
+                                showDropdown = showStoryDropdown,
+                                onDropdownToggle = { showStoryDropdown = it },
+                                chapterNumber = chapterNumber,
+                                onChapterNumberChange = { chapterNumber = it },
+                                chapterTitle = chapterTitle,
+                                onChapterTitleChange = { chapterTitle = it },
+                                pageUrls = pageUrls,
+                                onPageUrlsChange = { pageUrls = it },
+                                isLoading = isLoading,
+                                onSubmit = {
+                                    if (selectedStoryId == null) {
+                                        scope.launch { snackbarHostState.showSnackbar("Vui lòng chọn truyện") }
+                                        return@UploadChapterForm
+                                    }
+                                    val pages = pageUrls.lines().map { it.trim() }.filter { it.isNotEmpty() && it.startsWith("http") }
+                                    if (pages.isEmpty()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Vui lòng nhập ít nhất 1 link ảnh hợp lệ") }
+                                        return@UploadChapterForm
+                                    }
+
+                                    isLoading = true
+                                    val newChapter = Chapter(
+                                        title = chapterTitle.ifBlank { "Chương ${chapterNumber}" },
+                                        pages = pages
+                                    )
+
+                                    viewModel.addChapter(
+                                        mangaId = selectedStoryId!!,
+                                        chapter = newChapter,
                                         onSuccess = {
                                             isLoading = false
                                             scope.launch {
-                                                snackbarHostState.showSnackbar("Cập nhật truyện thành công!")
-                                                navController.popBackStack()
-                                            }
-                                        },
-                                        onError = {
-                                            isLoading = false
-                                            scope.launch { snackbarHostState.showSnackbar("Lỗi: ${it.message}") }
-                                        }
-                                    )
-                                } else {
-                                    // Tạo mới
-                                    viewModel.createStory(
-                                        story = newStory,
-                                        imageUrl = coverImageUrl,
-                                        selectedGenreNames = selectedGenreNames,
-                                        displayLists = selectedDisplayLists.value,
-                                        onSuccess = { storyId ->
-                                            isLoading = false
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Thêm truyện thành công!")
-                                                // Reset form
-                                                title = ""; author = ""; description = ""; coverImageUrl = ""
-                                                selectedGenreIds.clear()
-                                                selectedDisplayLists.value = emptySet()
+                                                snackbarHostState.showSnackbar("Thêm chương thành công!")
+                                                chapterNumber = ""
+                                                chapterTitle = ""
+                                                pageUrls = ""
                                             }
                                         },
                                         onError = {
@@ -249,68 +332,12 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
                                         }
                                     )
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
 
-                    1 -> item {
-                        UploadChapterForm(
-                            stories = allStories,
-                            selectedStoryTitle = selectedStoryTitle,
-                            onStorySelected = { story ->
-                                selectedStoryId = story.id
-                                selectedStoryTitle = story.title
-                                showStoryDropdown = false
-                            },
-                            showDropdown = showStoryDropdown,
-                            onDropdownToggle = { showStoryDropdown = it },
-                            chapterNumber = chapterNumber,
-                            onChapterNumberChange = { chapterNumber = it },
-                            chapterTitle = chapterTitle,
-                            onChapterTitleChange = { chapterTitle = it },
-                            pageUrls = pageUrls,
-                            onPageUrlsChange = { pageUrls = it },
-                            isLoading = isLoading,
-                            onSubmit = {
-                                if (selectedStoryId == null) {
-                                    scope.launch { snackbarHostState.showSnackbar("Vui lòng chọn truyện") }
-                                    return@UploadChapterForm
-                                }
-                                val pages = pageUrls.lines().map { it.trim() }.filter { it.isNotEmpty() && it.startsWith("http") }
-                                if (pages.isEmpty()) {
-                                    scope.launch { snackbarHostState.showSnackbar("Vui lòng nhập ít nhất 1 link ảnh hợp lệ") }
-                                    return@UploadChapterForm
-                                }
-
-                                isLoading = true
-                                val newChapter = Chapter(
-                                    title = chapterTitle.ifBlank { "Chương ${chapterNumber}" },
-                                    pages = pages
-                                )
-
-                                viewModel.addChapter(
-                                    mangaId = selectedStoryId!!,
-                                    chapter = newChapter,
-                                    onSuccess = {
-                                        isLoading = false
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Thêm chương thành công!")
-                                            chapterNumber = ""
-                                            chapterTitle = ""
-                                            pageUrls = ""
-                                        }
-                                    },
-                                    onError = {
-                                        isLoading = false
-                                        scope.launch { snackbarHostState.showSnackbar("Lỗi: ${it.message}") }
-                                    }
-                                )
-                            }
-                        )
-                    }
+                    item { Spacer(modifier = Modifier.height(100.dp)) }
                 }
-
-                item { Spacer(modifier = Modifier.height(100.dp)) }
             }
         }
     }

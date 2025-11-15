@@ -25,12 +25,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import com.example.appdoctruyentranh.AppBottomNavigationBar
-import com.example.appdoctruyentranh.AppHeader
-import com.example.appdoctruyentranh.PrimaryColor
 import com.example.appdoctruyentranh.model.Genre
 import java.net.URLEncoder
 import com.example.appdoctruyentranh.model.UiState
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.GenreViewModel
 
 // ========================================================================
@@ -99,9 +97,15 @@ fun GenreItem(genre: Genre, onClick: () -> Unit) {
 @Composable
 fun GenreScreen(
     navController: NavHostController,
-    viewModel: GenreViewModel = viewModel()
+    viewModel: GenreViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.checkAdminStatus()
+    }
 
     Scaffold(
         topBar = {
@@ -119,7 +123,7 @@ fun GenreScreen(
                 }
             )
         },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
+        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
     ) { paddingValues ->
 
         Column(
