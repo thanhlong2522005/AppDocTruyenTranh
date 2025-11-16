@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,10 +42,13 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import com.example.appdoctruyentranh.model.Chapter
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 val BannerHeight = 200.dp
 var chapters = mutableStateListOf<Chapter>()
@@ -95,46 +99,45 @@ fun HomeScreen(
                 ) {
                     // 1. Banner
                     if (data.banners.isNotEmpty()) {
-                        item { SectionHeader("Đề xuất", navController) }
+                        item { SectionHeader("Đề xuất", navController, showAllButton = false) }
                         item {
                             HomeBannerCarousel(
-                                banners = data.banners,
+                                banners = data.banners.distinctBy { it.id },
                                 onBannerClick = { navController.navigate("manga_detail/${it.id}") }
                             )
                         }
                         item { Spacer(Modifier.height(16.dp)) }
                     }
 
-                    // 2. Mới cập nhật
+                        // 2. Mới cập nhật
                     data.newUpdates.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { StorySection("Mới Cập Nhật", list, navController) }
+                        item { StorySection("Mới Cập Nhật", list, navController, showAllButton = false) }
                     } ?: item { EmptySectionPlaceholder("Mới Cập Nhật") }
 
-                    // 3. Xem nhiều nhất
+                        // 3. Xem nhiều nhất
                     data.mostViewed.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { StorySection("Xem Nhiều Nhất", list, navController) }
+                        item { StorySection("Xem Nhiều Nhất", list.distinctBy { it.id }, navController) }
                     } ?: item { EmptySectionPlaceholder("Xem Nhiều Nhất") }
 
-                    // 4. Truyện hoàn thành
+                        // 4. Truyện hoàn thành
                     data.completedStories.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { StorySection("Truyện Hoàn Thành", list, navController) }
+                        item { StorySection("Truyện Hoàn Thành", list.distinctBy { it.id }, navController) }
                     } ?: item { EmptySectionPlaceholder("Truyện Hoàn Thành") }
-                    // 5. Được yêu thích
-                    // 5. Được Yêu Thích
+
+                        // 5. Được Yêu Thích
                     data.favorites.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { StorySection("Được Yêu Thích", list, navController) }
+                        item { StorySection("Được Yêu Thích", list.distinctBy { it.id }, navController) }
                     } ?: item { EmptySectionPlaceholder("Được Yêu Thích") }
 
-                    // 6. Đang Thịnh Hành
+                        // 6. Đang Thịnh Hành
                     data.trending.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { StorySection("Đang Thịnh Hành", list, navController) }
+                        item { StorySection("Đang Thịnh Hành", list.distinctBy { it.id }, navController) }
                     } ?: item { EmptySectionPlaceholder("Đang Thịnh Hành") }
 
-                    // 7. Đang Ra Mắt
+                            // 7. Đang Ra Mắt
                     data.newReleases.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { StorySection("Đang Ra Mắt", list, navController) }
+                        item { StorySection("Đang Ra Mắt", list.distinctBy { it.id }, navController) }
                     } ?: item { EmptySectionPlaceholder("Đang Ra Mắt") }
-
 
                 }
             }
@@ -172,7 +175,11 @@ fun EmptySectionPlaceholder(title: String) {
 }
 
 @Composable
-fun SectionHeader(title: String, navController: NavHostController? = null) {
+fun SectionHeader(
+    title: String,
+    navController: NavHostController? = null,
+    showAllButton: Boolean = true
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -182,40 +189,58 @@ fun SectionHeader(title: String, navController: NavHostController? = null) {
     ) {
         Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
 
-        Text(
-            "Xem tất cả",
-            color = PrimaryColor,
-            fontSize = 14.sp,
-            modifier = Modifier.clickable {
-                navController?.navigate("story_list/${title}")
-            }
-        )
+        if (showAllButton && navController != null) {
+            Text(
+                "Xem tất cả",
+                color = PrimaryColor,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable {
+                    navController.navigate("story_list/${title}")
+                }
+            )
+        }
     }
 }
 
+
 @Composable
-fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
+fun HomeBannerCarousel(
+    banners: List<Story>,
+    onBannerClick: (Story) -> Unit
+) {
     val page = remember { mutableStateOf(0) }
     val pageCount = banners.size
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
-    // ⭐ Auto slide banner mỗi 3 giây
-    LaunchedEffect(Unit) {
+    // ⭐ Auto slide + lặp lại + scroll mượt đến vị trí mới
+    LaunchedEffect(pageCount) {
+        if (pageCount == 0) return@LaunchedEffect
+
         while (true) {
             kotlinx.coroutines.delay(3000)
             page.value = (page.value + 1) % pageCount
+            listState.animateScrollToItem(page.value)
         }
+    }
+
+    // ⭐ Khi user vuốt tay → cập nhật page theo vị trí đang hiển thị
+    LaunchedEffect(listState.firstVisibleItemIndex) {
+        page.value = listState.firstVisibleItemIndex
     }
 
     Column {
         LazyRow(
             modifier = Modifier.height(BannerHeight),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            state = listState
         ) {
             itemsIndexed(banners) { index, story ->
 
                 val scale by animateFloatAsState(
-                    targetValue = if (index == page.value) 1f else 0.85f
+                    targetValue = if (index == page.value) 1f else 0.85f,
+                    label = ""
                 )
 
                 Card(
@@ -223,7 +248,10 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
                         .width(320.dp * scale)
                         .fillMaxHeight()
                         .clickable { onBannerClick(story) }
-                        .graphicsLayer { scaleX = scale; scaleY = scale },
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(10.dp)
                 ) {
@@ -234,11 +262,13 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color.Black.copy(alpha = 0.3f))
                         )
+
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
@@ -255,8 +285,7 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
                                 Text(
                                     story.author,
                                     color = Color.White.copy(0.8f),
-                                    fontSize = 14.sp,
-                                    maxLines = 1
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -266,6 +295,7 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
         }
 
         // ⭐ Indicator
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -278,18 +308,31 @@ fun HomeBannerCarousel(banners: List<Story>, onBannerClick: (Story) -> Unit) {
                         .size(if (index == page.value) 10.dp else 6.dp)
                         .clip(CircleShape)
                         .background(if (index == page.value) PrimaryColor else Color.LightGray)
-                        .clickable { page.value = index }
+                        .clickable {
+                            page.value = index
+                            scope.launch {
+                                listState.animateScrollToItem(index)
+                            }
+                        }
                 )
                 if (index < pageCount - 1) Spacer(Modifier.width(6.dp))
             }
         }
+
     }
 }
 
+
 @Composable
-fun StorySection(title: String, stories: List<Story>, navController: NavHostController) {
+fun StorySection(
+    title: String,
+    stories: List<Story>,
+    navController: NavHostController,
+    showAllButton: Boolean = true
+) {
     Column {
-        SectionHeader(title, navController)
+        SectionHeader(title, navController, showAllButton)
+
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -300,9 +343,11 @@ fun StorySection(title: String, stories: List<Story>, navController: NavHostCont
                 }
             }
         }
+
         Spacer(Modifier.height(16.dp))
     }
 }
+
 
 
 @Composable

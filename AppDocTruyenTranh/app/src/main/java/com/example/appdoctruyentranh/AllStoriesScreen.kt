@@ -40,7 +40,7 @@ fun AllStoriesScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    val list = when (title) {
+    val rawList = when (title) {
         "Đề Xuất" -> state.banners
         "Mới cập nhật" -> state.newUpdates
         "Xem Nhiều Nhất" -> state.mostViewed
@@ -50,6 +50,8 @@ fun AllStoriesScreen(
         "Đang Ra Mắt" -> state.newReleases
         else -> emptyList()
     }
+
+    val list = rawList.distinctBy { it.id }
 
     val isLoading = state.isLoading
     val error = state.errorMessage

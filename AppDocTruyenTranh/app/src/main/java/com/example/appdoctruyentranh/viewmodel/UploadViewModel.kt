@@ -8,8 +8,10 @@ import com.example.appdoctruyentranh.model.Story
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -220,7 +222,26 @@ class UploadViewModel : ViewModel() {
             }
         }
     }
+    // Thêm vào UploadViewModel.kt
+    suspend fun getStoryByIdSuspend(mangaId: String): Story? = withContext(Dispatchers.IO) {
+        try {
+            val doc = storiesRef.document(mangaId).get().await()
+            doc.toObject(Story::class.java)?.copy(id = doc.id)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
+    suspend fun getGenresSuspend(): List<Genre> = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = genresRef.get().await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Genre::class.java)?.copy(id = doc.id.toInt())
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
     // =================================================================
     // 8. XÓA KHỎI DANH SÁCH HIỂN THỊ
     // =================================================================
@@ -263,7 +284,7 @@ class UploadViewModel : ViewModel() {
     }
 
     // Helper: sync version (dùng trong update)
-    private suspend fun isInDisplayListSync(storyId: String, collectionName: String): Boolean {
+    internal suspend fun isInDisplayListSync(storyId: String, collectionName: String): Boolean {
         return try {
             val collection = displayCollections[collectionName]!!
             collection.document(storyId).get().await().exists()

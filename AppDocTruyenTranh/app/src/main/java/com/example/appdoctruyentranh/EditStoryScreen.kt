@@ -25,6 +25,7 @@ import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.UploadViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,34 +74,45 @@ fun EditStoryScreen(navController: NavHostController, mangaId: String) {
         var isSaving by remember { mutableStateOf(false) }
 
         LaunchedEffect(mangaId) {
-            viewModel.getStoryById(mangaId) { fetchedStory ->
+            isLoading = true
+
+            try {
+                // 1. Lấy TRỌN VỌN bằng suspend functions
+                val fetchedStory = viewModel.getStoryByIdSuspend(mangaId)
+                val genres = viewModel.getGenresSuspend()
+
+                // 2. Gán ngay
                 story = fetchedStory
-            }
-            viewModel.getGenres { genres ->
                 allGenres = genres
-            }
-            val displayCollections = listOf(
-                "banners", "new_updates", "most_viewed", "completed_stories",
-                "favorites", "trending_list", "new_releases"
-            )
-            val currentLists = mutableSetOf<String>()
-            displayCollections.forEach { collectionName ->
-                viewModel.isInDisplayList(collectionName, mangaId) { isIn ->
-                    if (isIn) currentLists.add(collectionName)
+
+                // 3. Kiểm tra TẤT CẢ collections (đợi từng cái)
+                val displayCollectionNames = listOf(
+                    "banners", "new_updates", "most_viewed", "completed_stories",
+                    "favorites_list", "trending_list", "new_releases"
+                )
+
+                val currentLists = mutableSetOf<String>()
+                displayCollectionNames.forEach { collectionName ->
+                    val exists = viewModel.isInDisplayListSync(mangaId, collectionName)
+                    if (exists) {
+                        currentLists.add(collectionName)
+                        println("✅ TÍCH SẴN: $collectionName") // Debug log
+                    }
                 }
+
+                selectedDisplayLists = currentLists
+
+                // 4. Cập nhật genres selected
+                selectedGenreIds = genres
+                    .filter { fetchedStory?.genres?.contains(it.name) == true }
+                    .map { it.id.toString() }
+
+            } catch (e: Exception) {
+                println("❌ Lỗi load: ${e.message}")
+            } finally {
+                isLoading = false
             }
-            selectedDisplayLists = currentLists
-
-            isLoading = false
         }
-
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            return
-        }
-
         if (story == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Không tìm thấy truyện", color = Color.Red, fontWeight = FontWeight.Medium)
@@ -212,28 +224,75 @@ fun EditStoryScreen(navController: NavHostController, mangaId: String) {
                     }
                 }
 
-                Text("Hiển thị trên trang chủ", fontWeight = FontWeight.Medium)
+                Text("Hiển thị trên trang chủ", fontWeight = FontWeight.Medium, fontSize = 16.sp)
+
                 val displayOptions = listOf(
                     "banners" to "Banner chính",
                     "new_updates" to "Cập nhật mới",
                     "most_viewed" to "Xem nhiều nhất",
                     "completed_stories" to "Hoàn thành",
-                    "favorites" to "Yêu thích",
+                    "favorites_list" to "Yêu thích",
                     "trending_list" to "Xu hướng",
                     "new_releases" to "Mới phát hành"
                 )
-                FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     displayOptions.forEach { (key, label) ->
+                        val isSelected = selectedDisplayLists.contains(key)
+
                         FilterChip(
-                            selected = selectedDisplayLists.contains(key),
+                            selected = isSelected,
                             onClick = {
-                                selectedDisplayLists = if (selectedDisplayLists.contains(key)) {
-                                    selectedDisplayLists - key
+                                // Đảo ngược trạng thái
+                                if (isSelected) {
+                                    // Bỏ tích → XÓA KHỎI collection
+                                    scope.launch {
+                                        viewModel.removeFromDisplayList(
+                                            collectionName = key,
+                                            storyId = mangaId,
+                                            onSuccess = {
+                                                selectedDisplayLists = selectedDisplayLists - key
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Đã xóa khỏi \"$label\"")
+                                                }
+                                            },
+                                            onError = { e ->
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Lỗi: ${e.message}")
+                                                }
+                                            }
+                                        )
+                                    }
                                 } else {
-                                    selectedDisplayLists + key
+                                    // Tích vào → THÊM VÀO collection
+                                    scope.launch {
+                                        viewModel.addToDisplayList(
+                                            collectionName = key,
+                                            storyId = mangaId,
+                                            onSuccess = {
+                                                selectedDisplayLists = selectedDisplayLists + key
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Đã thêm vào \"$label\"")
+                                                }
+                                            },
+                                            onError = { e ->
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Lỗi: ${e.message}")
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             },
-                            label = { Text(label) }
+                            label = { Text(label) },
+                            leadingIcon = {
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                            }
                         )
                     }
                 }

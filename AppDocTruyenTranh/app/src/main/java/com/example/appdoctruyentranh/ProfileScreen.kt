@@ -98,7 +98,7 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
         item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
 
         if (isAdmin) {
-             item { ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Admin Panel", onClick = { navController.navigate("admin_upload") }) }
+             item { ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Admin Panel", onClick = { navController.navigate("ManageStoriesScreen") }) }
              item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
 

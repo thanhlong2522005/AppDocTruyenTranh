@@ -46,6 +46,14 @@ class MangaRepository {
             userFavoritesRef.delete().await()
         }
     }
+    suspend fun deleteStory(storyId: String) {
+        try {
+            db.collection("stories").document(storyId).delete().await()
+            // Có thể xóa chapter con hoặc các liên kết khác nếu muốn
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
     /**
      * Tải danh sách Chapters chi tiết cho một Story.
      * Dùng cho HomeScreen (để tính totalChapters) và MangaDetailScreen.
@@ -65,6 +73,23 @@ class MangaRepository {
             mutableStateListOf() // Trả về danh sách rỗng để tránh lỗi
         }
     }
+    suspend fun fetchAllStories(): List<Story> {
+        return try {
+            val snapshot = db.collection("stories").get().await()
+
+            snapshot.documents.mapNotNull { doc ->
+                val story = doc.toObject(Story::class.java)?.copy(id = doc.id)
+                if (story != null) {
+                    val chapters = fetchChaptersForStory(doc.id)
+                    story.copy(chapters = chapters)
+                } else null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
 
     // ===================== Lấy banner (Đã sửa) =====================
     suspend fun fetchBanners(): List<Story> {
@@ -107,7 +132,7 @@ class MangaRepository {
 
 
     // ===================== Hàm phụ dùng chung (Đã sửa) =====================
-    private suspend fun fetchStoriesFromRef(collection: String): List<Story> {
+    suspend fun fetchStoriesFromRef(collection: String): List<Story> {
         return try {
             println("Đang tải từ collection: $collection")
             val refDocs = db.collection(collection).get().await()
