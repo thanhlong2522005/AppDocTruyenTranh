@@ -31,6 +31,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.model.Chapter
 import androidx.lifecycle.viewmodel.compose.viewModel // ⭐️ Cần import này
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.HistoryViewModel
 import com.google.firebase.auth.FirebaseAuth
 
@@ -47,6 +48,12 @@ data class HistoryItem(
 @Composable
 fun HistoryScreen(navController: NavHostController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val authViewModel: AuthViewModel = viewModel()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
+    
+    LaunchedEffect(Unit) {
+        authViewModel.checkAdminStatus()
+    }
 
     if (currentUser == null) {
         PleaseLoginScreen(navController = navController, title = "Lịch sử đọc")
@@ -74,7 +81,7 @@ fun HistoryScreen(navController: NavHostController) {
                     }
                 )
             },
-            bottomBar = { AppBottomNavigationBar(navController = navController) }
+            bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
         ) { paddingValues ->
             Column(
                 modifier = Modifier

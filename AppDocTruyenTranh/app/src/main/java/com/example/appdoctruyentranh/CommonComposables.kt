@@ -113,12 +113,11 @@ data class BottomNavItem(
     val icon: ImageVector,
     val label: String
 )
-// Cập nhật Story để phù hợp với việc sử dụng (Mặc dù phần này nên nằm ở model/data)
 data class Story(
     val id: Int,
     val title: String,
     val coverUrl: String? = null,
-    val latestChapter: String? = null // Thêm trường này cho phong phú
+    val latestChapter: String? = null
 )
 
 // =========================================================================
@@ -194,24 +193,25 @@ fun AppHeader(
 // =========================================================================
 
 @Composable
-fun AppBottomNavigationBar(navController: NavHostController) {
+fun AppBottomNavigationBar(navController: NavHostController, isAdmin: Boolean) {
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry.value?.destination?.route
+
+    val allItems = listOf(
+        BottomNavItem("home", Icons.Default.Home, "Trang chủ"),
+        BottomNavItem("genre", Icons.Default.Menu, "Danh mục"),
+        BottomNavItem("search", Icons.Default.Search, "Tìm kiếm"),
+        BottomNavItem("favorite", Icons.Default.Favorite, "Yêu thích"),
+        BottomNavItem("profile", Icons.Default.Person, "Cá nhân")
+    )
+
+    val items = if (isAdmin) allItems.filter { it.route != "favorite" } else allItems
 
     NavigationBar(
         containerColor = Color.White,
         modifier = Modifier.height(60.dp),
         tonalElevation = 5.dp
     ) {
-        val items = listOf(
-            BottomNavItem("home", Icons.Default.Home, "Trang chủ"),
-            BottomNavItem("genre", Icons.Default.Menu, "Danh mục"),
-            BottomNavItem("search", Icons.Default.Search, "Tìm kiếm"),
-            BottomNavItem("favorite", Icons.Default.Favorite, "Yêu thích"),
-            // Cập nhật route cho Cá nhân
-            BottomNavItem("profile", Icons.Default.Person, "Cá nhân")
-        )
-
         items.forEach { item ->
             val isSelected = item.route == currentDestination
 
@@ -220,8 +220,6 @@ fun AppBottomNavigationBar(navController: NavHostController) {
                 onClick = {
                     if (item.route != currentDestination) {
                         navController.navigate(item.route) {
-                            // Cấu hình popUpTo, launchSingleTop, restoreState
-                            // Giả định NavController đã được cấu hình đúng.
                             launchSingleTop = true
                             restoreState = true
                         }

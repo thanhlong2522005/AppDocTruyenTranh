@@ -26,12 +26,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import com.example.appdoctruyentranh.model.Story
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.FavoriteViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun FavoriteScreen(navController: NavHostController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val authViewModel: AuthViewModel = viewModel()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.checkAdminStatus()
+    }
 
     if (currentUser == null) {
         PleaseLoginScreen(navController = navController, title = "Truyện yêu thích")
@@ -60,7 +67,7 @@ fun FavoriteScreen(navController: NavHostController) {
                     }
                 )
             },
-            bottomBar = { AppBottomNavigationBar(navController = navController) }
+            bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
         ) { paddingValues ->
             Column(
                 modifier = Modifier

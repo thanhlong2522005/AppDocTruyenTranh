@@ -22,19 +22,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.facebook.login.LoginManager
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun ProfileScreen(navController: NavHostController) {
     val auth = FirebaseAuth.getInstance()
+    val authViewModel: AuthViewModel = viewModel()
     var currentUser by remember { mutableStateOf(auth.currentUser) }
+    val isAdmin by authViewModel.isAdmin.collectAsState()
 
     DisposableEffect(auth) {
         val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             currentUser = firebaseAuth.currentUser
+            authViewModel.checkAdminStatus()
         }
         auth.addAuthStateListener(authStateListener)
         onDispose {
@@ -44,11 +49,18 @@ fun ProfileScreen(navController: NavHostController) {
 
     Scaffold(
         topBar = { AppHeader(navigationIcon = null) },
-        bottomBar = { AppBottomNavigationBar(navController = navController) }
+        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
              if (currentUser != null) {
-                LoggedInProfileScreen(navController = navController, onSignOut = { currentUser = null })
+                LoggedInProfileScreen(
+                    navController = navController,
+                    authViewModel = authViewModel,
+                    onSignOut = {
+                        currentUser = null
+                        authViewModel.checkAdminStatus() // Reset admin status on sign out
+                    }
+                )
             } else {
                 GuestProfileScreen(navController = navController)
             }
@@ -57,29 +69,39 @@ fun ProfileScreen(navController: NavHostController) {
 }
 
 @Composable
-fun LoggedInProfileScreen(navController: NavHostController, onSignOut: () -> Unit) {
+fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthViewModel, onSignOut: () -> Unit) {
     val auth = FirebaseAuth.getInstance()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
 
-    // Sử dụng LazyColumn để toàn bộ màn hình có thể cuộn được
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item {
-            ProfileHeader(navController = navController)
+            ProfileHeader(navController = navController, isAdmin = isAdmin)
         }
 
-        item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
-        item { ProfileMenuItem(icon = Icons.Default.CloudDownload, title = "Truyện đã tải", onClick = { navController.navigate("download_manager") }) }
-        item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
-        item { ProfileMenuItem(icon = Icons.Default.History, title = "Lịch sử đọc", onClick = { navController.navigate("history") }) }
-        item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
-        item { ProfileMenuItem(icon = Icons.Default.Favorite, title = "Truyện yêu thích", onClick = { navController.navigate("favorite") }) }
+        // Chỉ hiển thị các mục này nếu không phải là admin
+        if (!isAdmin) {
+            item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item { ProfileMenuItem(icon = Icons.Default.CloudDownload, title = "Truyện đã tải", onClick = { navController.navigate("download_manager") }) }
+            item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item { ProfileMenuItem(icon = Icons.Default.History, title = "Lịch sử đọc", onClick = { navController.navigate("history") }) }
+            item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item { ProfileMenuItem(icon = Icons.Default.Favorite, title = "Truyện yêu thích", onClick = { navController.navigate("favorite") }) }
+        }
+
         item { Divider(color = Color.LightGray, thickness = 8.dp) }
         item { ProfileMenuItem(icon = Icons.Default.Settings, title = "Cài đặt ứng dụng", onClick = { navController.navigate("settings") }) }
         item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
         item { ProfileMenuItem(icon = Icons.Default.Info, title = "Giới thiệu & Hỗ trợ", onClick = { /*TODO*/ }) }
         item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+
+        if (isAdmin) {
+             item { ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Admin Panel", onClick = { navController.navigate("admin_upload") }) }
+             item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+        }
+
         item { ProfileMenuItem(icon = Icons.Default.Logout, title = "Đăng xuất", isLogout = true, onClick = {
             LoginManager.getInstance().logOut()
             auth.signOut()
@@ -94,7 +116,6 @@ fun GuestProfileScreen(navController: NavHostController) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Header cho Guest
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -114,7 +135,6 @@ fun GuestProfileScreen(navController: NavHostController) {
             Text("Khách", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         }
 
-        // Nội dung chính
         Column(
              modifier = Modifier
                 .fillMaxWidth()
@@ -137,7 +157,7 @@ fun GuestProfileScreen(navController: NavHostController) {
 
 
 @Composable
-fun ProfileHeader(navController: NavHostController) {
+fun ProfileHeader(navController: NavHostController, isAdmin: Boolean) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val userName = currentUser?.displayName ?: "Tên Người Dùng"
     val userEmail = currentUser?.email ?: "user@example.com"
@@ -167,8 +187,12 @@ fun ProfileHeader(navController: NavHostController) {
             Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             Text(text = userEmail, fontSize = 14.sp, color = Color.Gray)
         }
-        IconButton(onClick = { navController.navigate("edit_profile") }) {
-            Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa hồ sơ")
+        
+        // Chỉ hiển thị nút sửa nếu không phải admin
+        if (!isAdmin) {
+            IconButton(onClick = { navController.navigate("edit_profile") }) {
+                Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa hồ sơ")
+            }
         }
     }
 }
