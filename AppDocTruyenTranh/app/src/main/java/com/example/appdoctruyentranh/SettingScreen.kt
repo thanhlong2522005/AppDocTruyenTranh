@@ -27,18 +27,24 @@ import com.example.appdoctruyentranh.PrimaryColor
 // Mock data cho Cài đặt
 data class SettingItem(val id: String, val title: String, val icon: ImageVector, val route: String? = null)
 
+// CẬP NHẬT: Thêm mục Tải xuống và Sửa route Báo cáo
 val settingItems = listOf(
     SettingItem("group_read", "Tùy chỉnh đọc", Icons.Default.MenuBook),
     SettingItem("font", "Font chữ", Icons.Default.FontDownload),
     SettingItem("page_mode", "Chế độ lật trang", Icons.Default.Pages),
     SettingItem("theme", "Chế độ giao diện", Icons.Default.LightMode),
 
+    // PHẦN THÊM MỚI: Quản lý Tải xuống
+    SettingItem("group_download", "Quản lý File", Icons.Default.Download),
+    SettingItem("download_manager", "Quản lý Tải xuống", Icons.Default.DownloadForOffline, "download_manager"),
+
     SettingItem("group_account", "Tài khoản", Icons.Default.Person),
     SettingItem("change_pass", "Đổi mật khẩu", Icons.Default.Key, "reset_password"),
     SettingItem("notifications", "Quản lý thông báo", Icons.Default.Notifications),
 
     SettingItem("group_support", "Hỗ trợ", Icons.Default.ContactSupport),
-    SettingItem("report", "Báo cáo lỗi / Phản hồi", Icons.Default.Feedback, "setting_report"),
+    // PHẦN SỬA ĐỔI: Sử dụng route để điều hướng thay vì Dialog
+    SettingItem("report", "Báo cáo lỗi / Phản hồi", Icons.Default.Feedback, "report_feedback"),
 )
 
 
@@ -98,15 +104,16 @@ fun SettingScreen(
 
                             SettingRow(item = item, detailText = detailText) {
                                 when (item.id) {
+                                    // Mở Dialogs
                                     "font" -> showFontDialog = true
                                     "page_mode" -> showModeDialog = true
                                     "theme" -> showThemeDialog = true
+
+                                    // Điều hướng đến màn hình mới/hiện có
                                     "change_pass" -> navController.navigate("reset_password")
-                                    "report" -> SimpleAlertDialog(
-                                        title = "Tính năng Báo cáo",
-                                        message = "Đây là nơi người dùng có thể gửi phản hồi về lỗi, ảnh, dịch thuật...",
-                                        onDismiss = {} // Cần thêm logic
-                                    )
+                                    "download_manager" -> navController.navigate("download_manager") // ĐIỀU HƯỚNG MỚI
+                                    "report" -> navController.navigate("report_feedback") // ĐIỀU HƯỚNG MỚI
+
                                     "notifications" -> { /* Toggle Logic */ }
                                     else -> { /* Navigate or handle logic */ }
                                 }
@@ -150,11 +157,11 @@ fun SettingScreen(
 }
 
 @Composable
-fun SettingRow(item: SettingItem, detailText: String? = null, onClick: @Composable () -> Unit) {
+fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick as () -> Unit)
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween

@@ -1,103 +1,75 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
+// File: DownloadManagerScreen.kt
 package com.example.appdoctruyentranh
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.appdoctruyentranh.model.DownloadItem
+import com.example.appdoctruyentranh.viewmodel.DownloadStatus
+import com.example.appdoctruyentranh.viewmodel.DownloadViewModel
+import com.example.appdoctruyentranh.PrimaryColor
 
-// --- Mock Data ---
-data class DownloadItem(
-    val story: Story,
-    val totalChapters: Int,
-    val downloadedChapters: Int,
-    val size: String
-)
-
-val mockDownloadedStories = listOf(
-    DownloadItem(Story(1, "Toàn Cầu Quỷ Dị Thời Đại", latestChapter = "Chương 25"), 150, 25, "50MB"),
-    DownloadItem(Story(2, "Vạn Cổ Tối Cường Tông", latestChapter = "Chương 50"), 100, 100, "150MB"),
-    DownloadItem(Story(3, "Phàm Nhân Tu Tiên", latestChapter = "Chương 10"), 10, 5, "10MB"),
-)
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DownloadManagerScreen(navController: NavHostController) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
+fun DownloadManagerScreen(
+    navController: NavController,
+    viewModel: DownloadViewModel = viewModel()
+) {
+    val downloadList by viewModel.downloadList.collectAsState()
 
-    if (currentUser == null) {
-        PleaseLoginScreen(navController = navController, title = "Truyện đã tải")
-    } else {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Truyện đã tải", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-                )
-            },
-            containerColor = Color.White
-        ) { paddingValues ->
-            Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Quản lý Tải xuống", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        },
+        containerColor = Color.White
+    ) { paddingValues ->
+        if (downloadList.isEmpty()) {
+            EmptyState(
+                icon = Icons.Default.Download,
+                title = "Chưa có truyện đã tải",
+                message = "Tải truyện về để đọc ngoại tuyến (offline) nhé!",
+                buttonText = null,
+                modifier = Modifier.padding(paddingValues)
+            )
+        } else {
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(top = 8.dp)
             ) {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (mockDownloadedStories.isEmpty()) {
-                        item {
-                            EmptyState(message = "Bạn chưa tải truyện nào để đọc offline.")
-                        }
-                    } else {
-                        item {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Tổng số truyện: ${mockDownloadedStories.size}", color = PrimaryColor, fontWeight = FontWeight.SemiBold)
-                                TextButton(onClick = { /* TODO: Xóa tất cả */ }) {
-                                    Text("Xóa tất cả", color = Color.Red)
-                                }
-                            }
-                        }
-                        items(mockDownloadedStories) { item ->
-                            DownloadStoryItem(
-                                item = item,
-                                onStoryClick = {
-                                    // Mở chi tiết truyện hoặc mở chương đã tải gần nhất
-                                    navController.navigate("manga_detail/${item.story.id}")
-                                },
-                                onDeleteClick = {
-                                    println("Deleted download: ${item.story.title}")
-                                }
-                            )
-                        }
+                items(downloadList, key = { it.id }) { item ->
+                    DownloadItemRow(item = item, viewModel = viewModel) {
+                        // TODO: Logic điều hướng đến màn hình đọc offline
                     }
+                    Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
         }
@@ -105,71 +77,122 @@ fun DownloadManagerScreen(navController: NavHostController) {
 }
 
 @Composable
-fun DownloadStoryItem(item: DownloadItem, onStoryClick: () -> Unit, onDeleteClick: () -> Unit) {
+fun DownloadItemRow(
+    item: DownloadItem,
+    viewModel: DownloadViewModel,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(90.dp)
-            .clickable(onClick = onStoryClick)
-            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable(enabled = item.status == DownloadStatus.COMPLETED) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // 1. Ảnh bìa (Placeholder)
-        Card(
-            modifier = Modifier.size(70.dp),
-            shape = RoundedCornerShape(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.CloudDownload, contentDescription = "Cover", tint = PrimaryColor.copy(alpha = 0.5f))
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // 2. Thông tin
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = item.story.title,
+                text = item.storyTitle,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Đã tải: ${item.downloadedChapters}/${item.totalChapters} Chương",
-                fontSize = 13.sp,
-                color = PrimaryColor,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "Dung lượng: ${item.size}",
-                fontSize = 12.sp,
-                color = Color.Gray
+                text = "Chương: ${item.chapter.title}",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
-        // 3. Nút Xóa
-        IconButton(onClick = onDeleteClick) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Xóa khỏi máy",
-                tint = Color.Red
-            )
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Hiển thị trạng thái
+        when (item.status) {
+            DownloadStatus.COMPLETED -> {
+                Icon(
+                    Icons.Default.CloudDone,
+                    contentDescription = "Hoàn tất",
+                    tint = Color.Green,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = { viewModel.deleteDownloadedItem(item.id) }) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Xóa",
+                        tint = Color.Red.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            DownloadStatus.DOWNLOADING -> {
+                CircularProgressIndicator(
+                    progress = item.progress / 100f,
+                    color = PrimaryColor,
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(30.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("${item.progress}%", fontSize = 14.sp, color = PrimaryColor)
+            }
+            DownloadStatus.PENDING -> {
+                Text("Chờ", fontSize = 14.sp, color = Color.Gray)
+            }
+            DownloadStatus.ERROR -> {
+                Text("Lỗi", fontSize = 14.sp, color = Color.Red)
+            }
         }
     }
 }
 
-@Preview(showBackground = true)
+// Hàm EmptyState được lấy từ SmartListState.kt để đảm bảo tính nhất quán.
+// Cần đảm bảo hàm này được import đúng hoặc copy sang đây nếu không thể import.
 @Composable
-fun PreviewDownloadManagerScreen() {
-    DownloadManagerScreen(navController = rememberNavController())
+fun EmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    message: String,
+    buttonText: String? = null,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    // ... (sử dụng lại code EmptyState từ SmartListState.kt)
+    // Tôi sẽ giả định nó được import đúng.
+    // Nếu bạn gặp lỗi, hãy đặt lại code EmptyState trong file này.
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.Gray.copy(alpha = 0.4f),
+            modifier = Modifier.size(100.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = message,
+            color = Color.Gray,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+        buttonText?.let {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { onClick?.invoke() },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+            ) {
+                Text(buttonText)
+            }
+        }
+    }
 }
