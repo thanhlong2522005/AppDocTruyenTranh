@@ -135,6 +135,21 @@ fun AppNavigation() {
         }
 
         composable(
+            route = "admin_upload?mangaId={mangaId}",
+            arguments = listOf(navArgument("mangaId") { nullable = true; defaultValue = null })
+        ) { backStackEntry ->
+            val mangaId = backStackEntry.arguments?.getString("mangaId")
+            AdminUploadScreen(navController = navController, preselectedMangaId = mangaId)
+        }
+        composable(
+            route = "edit_story/{mangaId}",
+            arguments = listOf(navArgument("mangaId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val mangaId = backStackEntry.arguments?.getString("mangaId")!!
+            EditStoryScreen(navController = navController, mangaId = mangaId)
+        }
+
+        composable(
             route = "read/{mangaId}/{chapterId}",
             arguments = listOf(
                 navArgument("mangaId") { type = NavType.StringType },
