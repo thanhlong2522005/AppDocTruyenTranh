@@ -100,6 +100,9 @@ fun AppNavigation() {
             AllStoriesScreen(title, navController = navController)
         }
 
+
+
+        // 11. Màn hình Thể loại
         composable("genre") {
             GenreScreen(navController = navController)
         }
@@ -130,23 +133,6 @@ fun AppNavigation() {
         composable("ManageStoriesScreen") {
             ManageStoriesScreen(navController = navController)
         }
-
-        // --- ROUTE ADMIN ĐƯỢC THÊM VÀO ---
-        composable(
-            route = "admin_upload?mangaId={mangaId}",
-            arguments = listOf(navArgument("mangaId") { nullable = true; defaultValue = null })
-        ) { backStackEntry ->
-            val mangaId = backStackEntry.arguments?.getString("mangaId")
-            AdminUploadScreen(navController = navController, preselectedMangaId = mangaId)
-        }
-        composable(
-            route = "edit_story/{mangaId}",
-            arguments = listOf(navArgument("mangaId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val mangaId = backStackEntry.arguments?.getString("mangaId")!!
-            EditStoryScreen(navController = navController, mangaId = mangaId)
-        }
-        // --- HẾT PHẦN THÊM ADMIN ROUTE ---
 
         composable(
             route = "read/{mangaId}/{chapterId}",

@@ -43,11 +43,9 @@ import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.PagerState
 import com.google.accompanist.pager.rememberPagerState
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
-// =========================================================================
-// MÀN HÌNH ĐỌC TRUYỆN - HOÀN CHỈNH THEO MODEL MỚI
-// =========================================================================
 @Composable
 fun PleaseLoginScreen(navController: NavHostController, title: String) {
     Scaffold(
@@ -95,172 +93,162 @@ fun ReadScreen(
     chapterId: String,      // String từ route → parse thành Int
     viewModel: ChapterReaderViewModel = viewModel()
 ) {
-    val chapterIdInt = remember(chapterId) { chapterId.toIntOrNull() ?: 1 }
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
-    val isMenuVisible by viewModel.isMenuVisible.collectAsState()
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
-    val currentFont by viewModel.currentFont.collectAsState()
-    val readingMode by viewModel.readingMode.collectAsState()
-    val displayFontFamily = getCustomFontFamily(currentFont)
+    if (currentUser == null) {
+        PleaseLoginScreen(navController = navController, title = "Đọc truyện")
+    } else {
+        val chapterIdInt = remember(chapterId) { chapterId.toIntOrNull() ?: 1 }
 
-    val chapterData by viewModel.chapterData.collectAsState()
-    val story by viewModel.currentStory.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.errorMessage.collectAsState()
+        val isMenuVisible by viewModel.isMenuVisible.collectAsState()
+        val isDarkMode by viewModel.isDarkMode.collectAsState()
+        val currentFont by viewModel.currentFont.collectAsState()
+        val readingMode by viewModel.readingMode.collectAsState()
+        val displayFontFamily = getCustomFontFamily(currentFont)
 
-    val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
+        val chapterData by viewModel.chapterData.collectAsState()
+        val story by viewModel.currentStory.collectAsState()
+        val isLoading by viewModel.isLoading.collectAsState()
+        val error by viewModel.errorMessage.collectAsState()
 
-    var showReportDialog by remember { mutableStateOf(false) }
-    var showCommentDialog by remember { mutableStateOf(false) }
+        val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
 
-    // State cho LazyList và Pager
-    val listState = rememberLazyListState()
-    val pagerState = rememberPagerState()
-    val coroutineScope = rememberCoroutineScope()
+        var showReportDialog by remember { mutableStateOf(false) }
+        var showCommentDialog by remember { mutableStateOf(false) }
 
-    // Tải chương
-    LaunchedEffect(mangaId, chapterIdInt) {
-        viewModel.loadChapter(mangaId, chapterIdInt)
-    }
+        val listState = rememberLazyListState()
+        val pagerState = rememberPagerState()
+        val coroutineScope = rememberCoroutineScope()
 
-    // Loading
-    if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = PrimaryColor)
+        LaunchedEffect(mangaId, chapterIdInt) {
+            viewModel.loadChapter(mangaId, chapterIdInt)
         }
-        return
-    }
 
-    // Error
-    error?.let {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(it, color = Color.Red, fontSize = 16.sp)
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = { viewModel.loadChapter(mangaId, chapterIdInt) },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-                ) {
-                    Text("Thử lại")
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryColor)
+            }
+            return
+        }
+
+        error?.let {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(it, color = Color.Red, fontSize = 16.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { viewModel.loadChapter(mangaId, chapterIdInt) },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    ) {
+                        Text("Thử lại")
+                    }
                 }
             }
+            return
         }
-        return
-    }
 
-    // Không có trang
-    if (chapterData.pages.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Không có trang nào", color = Color.Gray)
+        if (chapterData.pages.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Không có trang nào", color = Color.Gray)
+            }
+            return
         }
-        return
-    }
 
-    // Tính toán trang hiện tại
-    val currentPage = when (readingMode) {
-        ReadingMode.VERTICAL_SCROLL -> listState.firstVisibleItemIndex + 1
-        ReadingMode.HORIZONTAL_PAGINATION -> pagerState.currentPage + 1
-    }
+        val currentPage = when (readingMode) {
+            ReadingMode.VERTICAL_SCROLL -> listState.firstVisibleItemIndex + 1
+            ReadingMode.HORIZONTAL_PAGINATION -> pagerState.currentPage + 1
+        }
 
-    // Lấy thông tin chương
-    val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
-    val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
-    val totalChapters = story?.chapters?.size ?: 1
-    val hasPrev = chapterIdInt > 1
-    val hasNext = chapterIdInt < totalChapters
+        val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
+        val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
+        val totalChapters = story?.chapters?.size ?: 1
+        val hasPrev = chapterIdInt > 1
+        val hasNext = chapterIdInt < totalChapters
 
-    // Nội dung chính
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgColor)
-    ) { paddingValues ->
-        Box(
+        Scaffold(
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor)
-                .padding(paddingValues)
-        ) {
-            // Reader
-            when (readingMode) {
-                ReadingMode.VERTICAL_SCROLL -> {
-                    VerticalReader(
-                        pages = chapterData.pages,
-                        isDarkMode = isDarkMode,
-                        listState = listState,
-                        onToggleMenu = { viewModel.toggleMenuVisibility() }
-                    )
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(bgColor)
+                    .padding(paddingValues)
+            ) {
+                when (readingMode) {
+                    ReadingMode.VERTICAL_SCROLL -> {
+                        VerticalReader(
+                            pages = chapterData.pages,
+                            isDarkMode = isDarkMode,
+                            listState = listState,
+                            onToggleMenu = { viewModel.toggleMenuVisibility() }
+                        )
+                    }
+                    ReadingMode.HORIZONTAL_PAGINATION -> {
+                        HorizontalPagerReader(
+                            pages = chapterData.pages,
+                            isDarkMode = isDarkMode,
+                            pagerState = pagerState,
+                            onToggleMenu = { viewModel.toggleMenuVisibility() }
+                        )
+                    }
                 }
-                ReadingMode.HORIZONTAL_PAGINATION -> {
-                    HorizontalPagerReader(
-                        pages = chapterData.pages,
-                        isDarkMode = isDarkMode,
-                        pagerState = pagerState,
-                        onToggleMenu = { viewModel.toggleMenuVisibility() }
-                    )
-                }
+
+                MenuTopBar(
+                    isVisible = isMenuVisible,
+                    title = "${story?.title ?: "Truyện"} - $chapterTitle",
+                    onBack = { navController.popBackStack() },
+                    onSettingClick = { navController.navigate("settings") }
+                )
+
+                MenuBottomBar(
+                    isVisible = isMenuVisible,
+                    chapterId = chapterIdInt,
+                    totalChapters = totalChapters,
+                    totalPages = chapterData.pages.size,
+                    currentPage = currentPage.coerceAtMost(chapterData.pages.size),
+                    hasPrev = hasPrev,
+                    hasNext = hasNext,
+                    onPrevClick = {
+                        if (hasPrev) {
+                            coroutineScope.launch {
+                                navController.navigate("read/$mangaId/${chapterIdInt - 1}")
+                            }
+                        }
+                    },
+                    onNextClick = {
+                        if (hasNext) {
+                            coroutineScope.launch {
+                                navController.navigate("read/$mangaId/${chapterIdInt + 1}")
+                            }
+                        }
+                    },
+                    onToggleDarkMode = { viewModel.toggleDarkMode() },
+                    onReportClick = { showReportDialog = true },
+                    onCommentClick = { showCommentDialog = true },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
+        }
 
-            // Top Bar
-            MenuTopBar(
-                isVisible = isMenuVisible,
-                title = "${story?.title ?: "Truyện"} - $chapterTitle",
-                onBack = { navController.popBackStack() },
-                onSettingClick = { navController.navigate("settings") }
+        if (showReportDialog) {
+            SimpleAlertDialog(
+                title = "Báo cáo lỗi",
+                message = "Gửi báo cáo về chương này?",
+                onDismiss = { showReportDialog = false }
             )
+        }
 
-            // Bottom Bar
-            MenuBottomBar(
-                isVisible = isMenuVisible,
-                chapterId = chapterIdInt,
-                totalChapters = totalChapters,
-                totalPages = chapterData.pages.size,
-                currentPage = currentPage.coerceAtMost(chapterData.pages.size),
-                hasPrev = hasPrev,
-                hasNext = hasNext,
-                onPrevClick = {
-                    if (hasPrev) {
-                        coroutineScope.launch {
-                            navController.navigate("read/$mangaId/${chapterIdInt - 1}")
-                        }
-                    }
-                },
-                onNextClick = {
-                    if (hasNext) {
-                        coroutineScope.launch {
-                            navController.navigate("read/$mangaId/${chapterIdInt + 1}")
-                        }
-                    }
-                },
-                onToggleDarkMode = { viewModel.toggleDarkMode() },
-                onReportClick = { showReportDialog = true },
-                onCommentClick = { showCommentDialog = true },
-                modifier = Modifier.align(Alignment.BottomCenter)
+        if (showCommentDialog) {
+            SimpleAlertDialog(
+                title = "Bình luận",
+                message = "Tính năng bình luận đang phát triển.",
+                onDismiss = { showCommentDialog = false }
             )
         }
     }
-
-    // Dialogs
-    if (showReportDialog) {
-        SimpleAlertDialog(
-            title = "Báo cáo lỗi",
-            message = "Gửi báo cáo về chương này?",
-            onDismiss = { showReportDialog = false }
-        )
-    }
-
-    if (showCommentDialog) {
-        SimpleAlertDialog(
-            title = "Bình luận",
-            message = "Tính năng bình luận đang phát triển.",
-            onDismiss = { showCommentDialog = false }
-        )
-    }
 }
-
-// =========================================================================
-// CHẾ ĐỘ CUỘN DỌC
-// =========================================================================
 
 @Composable
 fun VerticalReader(
@@ -296,10 +284,6 @@ fun VerticalReader(
     }
 }
 
-// =========================================================================
-// CHẾ ĐỘ LẬT NGANG
-// =========================================================================
-
 @OptIn(ExperimentalPagerApi::class)
 @Composable
 fun HorizontalPagerReader(
@@ -323,10 +307,6 @@ fun HorizontalPagerReader(
     }
 }
 
-// =========================================================================
-// HIỂN THỊ ẢNH TRANG
-// =========================================================================
-
 @Composable
 fun MangaPageImage(imageUrl: String, isDarkMode: Boolean) {
     Card(
@@ -348,10 +328,6 @@ fun MangaPageImage(imageUrl: String, isDarkMode: Boolean) {
         )
     }
 }
-
-// =========================================================================
-// MENU TOP & BOTTOM
-// =========================================================================
 
 @Composable
 fun MenuTopBar(
@@ -459,10 +435,6 @@ fun MenuBottomBar(
         }
     }
 }
-
-// =========================================================================
-// DIALOG
-// =========================================================================
 
 @Composable
 fun SimpleAlertDialog(title: String, message: String, onDismiss: () -> Unit) {

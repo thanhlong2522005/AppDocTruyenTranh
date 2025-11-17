@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package com.example.appdoctruyentranh
 
 import androidx.compose.foundation.Image
@@ -19,15 +17,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.facebook.login.LoginManager
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun ProfileScreen(navController: NavHostController) {
@@ -36,14 +38,18 @@ fun ProfileScreen(navController: NavHostController) {
     var currentUser by remember { mutableStateOf(auth.currentUser) }
     val isAdmin by authViewModel.isAdmin.collectAsState()
 
-    DisposableEffect(auth) {
-        val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-            currentUser = firebaseAuth.currentUser
-            authViewModel.checkAdminStatus()
+    // Tự động làm mới khi quay lại màn hình
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentUser = auth.currentUser
+                authViewModel.checkAdminStatus()
+            }
         }
-        auth.addAuthStateListener(authStateListener)
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            auth.removeAuthStateListener(authStateListener)
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -58,7 +64,7 @@ fun ProfileScreen(navController: NavHostController) {
                     authViewModel = authViewModel,
                     onSignOut = {
                         currentUser = null
-                        authViewModel.checkAdminStatus() // Reset admin status on sign out
+                        authViewModel.checkAdminStatus()
                     }
                 )
             } else {
@@ -81,7 +87,6 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
             ProfileHeader(navController = navController, isAdmin = isAdmin)
         }
 
-        // Chỉ hiển thị các mục này nếu không phải là admin
         if (!isAdmin) {
             item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
             item { ProfileMenuItem(icon = Icons.Default.CloudDownload, title = "Truyện đã tải", onClick = { navController.navigate("download_manager") }) }
@@ -159,6 +164,21 @@ fun GuestProfileScreen(navController: NavHostController) {
 @Composable
 fun ProfileHeader(navController: NavHostController, isAdmin: Boolean) {
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val firestore = FirebaseFirestore.getInstance()
+
+    var gender by remember { mutableStateOf("") }
+
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            firestore.collection("users").document(currentUser.uid).get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        gender = document.getString("gender") ?: ""
+                    }
+                }
+        }
+    }
+
     val userName = currentUser?.displayName ?: "Tên Người Dùng"
     val userEmail = currentUser?.email ?: "user@example.com"
     val userPhotoUrl = currentUser?.photoUrl
@@ -186,9 +206,11 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             Text(text = userEmail, fontSize = 14.sp, color = Color.Gray)
+            if (gender.isNotBlank()) {
+                Text(text = "Giới tính: $gender", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+            }
         }
-        
-        // Chỉ hiển thị nút sửa nếu không phải admin
+
         if (!isAdmin) {
             IconButton(onClick = { navController.navigate("edit_profile") }) {
                 Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa hồ sơ")
