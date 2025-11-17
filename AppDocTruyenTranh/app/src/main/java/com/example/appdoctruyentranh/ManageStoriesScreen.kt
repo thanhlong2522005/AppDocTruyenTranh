@@ -34,7 +34,8 @@ fun ManageStoriesScreen(
     val stories by viewModel.stories.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var search by remember { mutableStateOf("") }
-
+    var selectedStory by remember { mutableStateOf<Story?>(null) }
+    var showConfirm by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         viewModel.loadStories()
     }
@@ -106,16 +107,37 @@ fun ManageStoriesScreen(
                                 navController.navigate("editStory/${story.id}")
                             },
                             onDelete = {
-                                // Cần có xác nhận (AlertDialog) trước khi xoá.
-                                println("Xoá truyện: ${story.title}")
+                                selectedStory = story     // 👈 Lưu story đang chọn
+                                showConfirm = true         // 👈 Hiện dialog
                             },
                             onClick = {
-                               navController.navigate("manga_detail/${story.id}")
-                                println("Xem chi tiết truyện: ${story.title}")
+                                navController.navigate("manga_detail/${story.id}")
                             }
                         )
                     }
                 }
+            }
+
+            // ================== CONFIRM DELETE DIALOG ==================
+            if (showConfirm && selectedStory != null) {
+                AlertDialog(
+                    onDismissRequest = { showConfirm = false },
+                    title = { Text("Xác nhận xóa") },
+                    text = { Text("Bạn có chắc muốn xóa truyện '${selectedStory!!.title}'?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.deleteStory(selectedStory!!.id)
+                            showConfirm = false
+                        }) {
+                            Text("Xóa", color = Color.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showConfirm = false }) {
+                            Text("Hủy")
+                        }
+                    }
+                )
             }
         }
     }

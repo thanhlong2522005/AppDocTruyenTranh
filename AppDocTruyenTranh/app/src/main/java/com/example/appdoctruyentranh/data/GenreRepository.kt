@@ -61,4 +61,22 @@ class GenreRepository {
             emptyList()
         }
     }
+    // Lấy tên thể loại theo ID
+    suspend fun getGenreNameById(id: Int): String {
+        val doc = db.collection("genres").document(id.toString()).get().await()
+        return doc.getString("name") ?: ""
+    }
+
+    // Lấy truyện theo TÊN thể loại
+    suspend fun getStoriesByGenreName(name: String): List<Story> {
+        val snapshot = db.collection("stories")
+            .whereArrayContains("genres", name)
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull {
+            it.toObject(Story::class.java)?.copy(id = it.id)
+        }
+    }
+
 }

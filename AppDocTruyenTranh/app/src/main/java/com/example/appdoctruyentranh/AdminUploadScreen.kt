@@ -109,6 +109,22 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
                 allGenres.addAll(genres)
             }
         }
+        // Thêm state cho số chương tiếp theo
+        var nextChapterNumber by remember { mutableStateOf(1) }
+
+        // Khi chọn truyện → lấy lastChapterNumber + 1
+        LaunchedEffect(selectedStoryId) {
+            selectedStoryId?.let { id ->
+                viewModel.getLastChapterNumber(id) { last ->
+                    nextChapterNumber = (last + 1).toInt()                    // Tự động điền vào input nếu trống
+                    if (chapterNumber.isBlank()) {
+                        chapterNumber = nextChapterNumber.toString()
+                    }
+                }
+            } ?: run {
+                nextChapterNumber = 1
+            }
+        }
 
         LaunchedEffect(preselectedMangaId) {
             if (preselectedMangaId != null && selectedMode == 0) {
@@ -297,11 +313,13 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
                                 pageUrls = pageUrls,
                                 onPageUrlsChange = { pageUrls = it },
                                 isLoading = isLoading,
+                                nextChapterNumber = nextChapterNumber,
                                 onSubmit = {
                                     if (selectedStoryId == null) {
                                         scope.launch { snackbarHostState.showSnackbar("Vui lòng chọn truyện") }
                                         return@UploadChapterForm
                                     }
+
                                     val pages = pageUrls.lines().map { it.trim() }.filter { it.isNotEmpty() && it.startsWith("http") }
                                     if (pages.isEmpty()) {
                                         scope.launch { snackbarHostState.showSnackbar("Vui lòng nhập ít nhất 1 link ảnh hợp lệ") }
@@ -317,6 +335,7 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
                                     viewModel.addChapter(
                                         mangaId = selectedStoryId!!,
                                         chapter = newChapter,
+                                        userInputNumber = chapterNumber.takeIf { it.isNotBlank() }, // Chỉ gửi nếu có nhập
                                         onSuccess = {
                                             isLoading = false
                                             scope.launch {
@@ -324,6 +343,10 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
                                                 chapterNumber = ""
                                                 chapterTitle = ""
                                                 pageUrls = ""
+                                                // Cập nhật lại số chương tiếp theo
+                                                viewModel.getLastChapterNumber(selectedStoryId!!) { last ->
+                                                    nextChapterNumber = (last + 1).toInt()
+                                                }
                                             }
                                         },
                                         onError = {
@@ -457,6 +480,7 @@ fun UploadChapterForm(
     onDropdownToggle: (Boolean) -> Unit,
     chapterNumber: String,
     onChapterNumberChange: (String) -> Unit,
+    nextChapterNumber: Int,
     chapterTitle: String,
     onChapterTitleChange: (String) -> Unit,
     pageUrls: String,
@@ -486,7 +510,13 @@ fun UploadChapterForm(
             }
         }
 
-        OutlinedTextField(value = chapterNumber, onValueChange = onChapterNumberChange, label = { Text("Số chương *") }, modifier = Modifier.fillMaxWidth())
+        Text(
+            text = "Số chương : $nextChapterNumber",
+            modifier = Modifier.padding(8.dp),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
         OutlinedTextField(value = chapterTitle, onValueChange = onChapterTitleChange, label = { Text("Tên chương (tùy chọn)") }, modifier = Modifier.fillMaxWidth())
 
         OutlinedTextField(

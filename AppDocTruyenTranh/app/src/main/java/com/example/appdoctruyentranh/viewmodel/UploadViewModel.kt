@@ -108,6 +108,19 @@ class UploadViewModel : ViewModel() {
             }
         }
     }
+    // Trong UploadViewModel.kt
+    fun getLastChapterNumber(storyId: String, callback: (Long) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val storyRef = storiesRef.document(storyId)
+                val snapshot = storyRef.get().await()
+                val last = snapshot.getLong("lastChapterNumber") ?: 0L
+                callback(last)
+            } catch (e: Exception) {
+                callback(0L)
+            }
+        }
+    }
 
     // =================================================================
     // 3. THÊM CHƯƠNG (tự động đánh số)
@@ -115,6 +128,7 @@ class UploadViewModel : ViewModel() {
     fun addChapter(
         mangaId: String,
         chapter: Chapter,
+        userInputNumber: String? = null,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
@@ -145,6 +159,7 @@ class UploadViewModel : ViewModel() {
             }
         }
     }
+
 
     // =================================================================
     // 4. LẤY DANH SÁCH TRUYỆN
@@ -242,6 +257,7 @@ class UploadViewModel : ViewModel() {
             emptyList()
         }
     }
+
     // =================================================================
     // 8. XÓA KHỎI DANH SÁCH HIỂN THỊ
     // =================================================================

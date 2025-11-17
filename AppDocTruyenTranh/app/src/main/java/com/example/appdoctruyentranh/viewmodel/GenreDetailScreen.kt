@@ -9,6 +9,7 @@ import com.example.appdoctruyentranh.model.Story
 import kotlinx.coroutines.launch
 
 class GenreDetailViewModel : ViewModel() {
+
     private val repo = GenreRepository()
 
     private val _stories = mutableStateOf<List<Story>>(emptyList())
@@ -26,8 +27,20 @@ class GenreDetailViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val result = repo.getStoriesByGenre(genreId)
+                // Lấy tên thể loại theo ID
+                val genreName = repo.getGenreNameById(genreId)
+
+                if (genreName.isEmpty()) {
+                    _error.value = "Không tìm thấy thể loại!"
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                // Lấy truyện theo TÊN thể loại
+                val result = repo.getStoriesByGenreName(genreName)
+
                 _stories.value = result
+
             } catch (e: Exception) {
                 _error.value = "Lỗi tải truyện: ${e.localizedMessage}"
             } finally {
