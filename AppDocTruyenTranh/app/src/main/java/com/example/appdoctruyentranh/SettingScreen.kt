@@ -23,18 +23,20 @@ import androidx.navigation.NavHostController
 import com.example.appdoctruyentranh.viewmodel.ChapterReaderViewModel
 import com.example.appdoctruyentranh.viewmodel.ReadingMode
 import com.example.appdoctruyentranh.PrimaryColor
+import com.example.appdoctruyentranh.viewmodel.SettingsViewModel // IMPORT THÊM SETTINGS VIEWMODEL
+import androidx.compose.ui.platform.LocalContext // Cần cho ViewModel Factory
 
 // Mock data cho Cài đặt
 data class SettingItem(val id: String, val title: String, val icon: ImageVector, val route: String? = null)
 
-// CẬP NHẬT: Thêm mục Tải xuống và Sửa route Báo cáo
+// Giữ nguyên settingItems
 val settingItems = listOf(
     SettingItem("group_read", "Tùy chỉnh đọc", Icons.Default.MenuBook),
     SettingItem("font", "Font chữ", Icons.Default.FontDownload),
     SettingItem("page_mode", "Chế độ lật trang", Icons.Default.Pages),
     SettingItem("theme", "Chế độ giao diện", Icons.Default.LightMode),
 
-    // PHẦN THÊM MỚI: Quản lý Tải xuống
+    // PHẦN TẢI XUỐNG
     SettingItem("group_download", "Quản lý File", Icons.Default.Download),
     SettingItem("download_manager", "Quản lý Tải xuống", Icons.Default.DownloadForOffline, "download_manager"),
 
@@ -43,7 +45,6 @@ val settingItems = listOf(
     SettingItem("notifications", "Quản lý thông báo", Icons.Default.Notifications),
 
     SettingItem("group_support", "Hỗ trợ", Icons.Default.ContactSupport),
-    // PHẦN SỬA ĐỔI: Sử dụng route để điều hướng thay vì Dialog
     SettingItem("report", "Báo cáo lỗi / Phản hồi", Icons.Default.Feedback, "report_feedback"),
 )
 
@@ -51,11 +52,18 @@ val settingItems = listOf(
 @Composable
 fun SettingScreen(
     navController: NavHostController,
-    viewModel: ChapterReaderViewModel = viewModel()
+    chapterReaderViewModel: ChapterReaderViewModel = viewModel(), // Giữ nguyên
+    // FIX CRASH: Sử dụng Factory
+    settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModel.Factory(LocalContext.current)
+    )
 ) {
     var showFontDialog by remember { mutableStateOf(false) }
     var showModeDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+
+    // Lắng nghe trạng thái Dark Mode từ SettingsViewModel
+    val isDarkMode by settingsViewModel.uiState.collectAsState()
 
 
     Scaffold(
@@ -67,10 +75,10 @@ fun SettingScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -96,9 +104,12 @@ fun SettingScreen(
                     else -> {
                         item {
                             val detailText = when(item.id) {
-                                "font" -> viewModel.currentFont.collectAsState().value.fontName
-                                "page_mode" -> if (viewModel.readingMode.collectAsState().value == ReadingMode.VERTICAL_SCROLL) "Cuộn dọc" else "Lật ngang"
-                                "theme" -> if (viewModel.isDarkMode.collectAsState().value) "Tối" else "Sáng"
+                                // SỬ DỤNG chapterReaderViewModel cho Font và Mode
+                                "font" -> chapterReaderViewModel.currentFont.collectAsState().value.fontName
+                                "page_mode" -> if (chapterReaderViewModel.readingMode.collectAsState().value == ReadingMode.VERTICAL_SCROLL) "Cuộn dọc" else "Lật ngang"
+
+                                // SỬ DỤNG settingsViewModel cho Theme
+                                "theme" -> if (isDarkMode.isDarkMode) "Tối" else "Sáng"
                                 else -> null
                             }
 
@@ -107,18 +118,18 @@ fun SettingScreen(
                                     // Mở Dialogs
                                     "font" -> showFontDialog = true
                                     "page_mode" -> showModeDialog = true
-                                    "theme" -> showThemeDialog = true
+                                    "theme" -> showThemeDialog = true // Mở Theme Dialog
 
-                                    // Điều hướng đến màn hình mới/hiện có
+                                    // Điều hướng
                                     "change_pass" -> navController.navigate("reset_password")
-                                    "download_manager" -> navController.navigate("download_manager") // ĐIỀU HƯỚNG MỚI
-                                    "report" -> navController.navigate("report_feedback") // ĐIỀU HƯỚNG MỚI
+                                    "download_manager" -> navController.navigate("download_manager")
+                                    "report" -> navController.navigate("report_feedback")
 
                                     "notifications" -> { /* Toggle Logic */ }
                                     else -> { /* Navigate or handle logic */ }
                                 }
                             }
-                            Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
@@ -126,36 +137,32 @@ fun SettingScreen(
         }
     }
 
-    // Dialogs cho Tùy chỉnh đọc
+    // Dialogs
     if (showFontDialog) {
         FontSettingDialog(
-            currentFont = viewModel.currentFont.collectAsState().value,
-            onFontSelected = { font -> viewModel.setReadingFont(font) },
+            currentFont = chapterReaderViewModel.currentFont.collectAsState().value,
+            onFontSelected = { font -> chapterReaderViewModel.setReadingFont(font) },
             onDismiss = { showFontDialog = false }
         )
     }
 
     if (showModeDialog) {
         ModeSettingDialog(
-            currentMode = viewModel.readingMode.collectAsState().value,
-            onModeSelected = { mode -> viewModel.setReadingMode(mode) },
+            currentMode = chapterReaderViewModel.readingMode.collectAsState().value,
+            onModeSelected = { mode -> chapterReaderViewModel.setReadingMode(mode) },
             onDismiss = { showModeDialog = false }
         )
     }
 
     if (showThemeDialog) {
+        // FIX CRASH: ThemeSettingDialog đã tự xử lý ViewModel bên trong
         ThemeSettingDialog(
-            currentIsDarkMode = viewModel.isDarkMode.collectAsState().value,
-            onThemeSelected = { isDark ->
-                if (isDark != viewModel.isDarkMode.value) {
-                    viewModel.toggleDarkMode()
-                }
-            },
             onDismiss = { showThemeDialog = false }
         )
     }
 }
 
+// Giữ nguyên SettingRow (Đã sửa để dùng màu Theme)
 @Composable
 fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Unit) {
     Row(
@@ -170,7 +177,7 @@ fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Uni
             Icon(
                 imageVector = item.icon,
                 contentDescription = item.title,
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, // Dùng màu Theme
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -178,7 +185,7 @@ fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Uni
                 text = item.title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface // Dùng màu Theme
             )
         }
 
@@ -193,14 +200,14 @@ fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Uni
                 Text(
                     text = detailText,
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, // Dùng màu Theme
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                     contentDescription = null,
-                    tint = Color.LightGray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), // Dùng màu Theme
                     modifier = Modifier.size(16.dp)
                 )
             }

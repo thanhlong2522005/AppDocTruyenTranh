@@ -61,10 +61,12 @@ fun ProfileScreen(navController: NavHostController) {
 
     Scaffold(
         topBar = { AppHeader(navigationIcon = null) },
-        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
+        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) },
+        // SỬA: Đảm bảo nền của Scaffold theo theme
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-             if (currentUser != null) {
+            if (currentUser != null) {
                 LoggedInProfileScreen(
                     navController = navController,
                     authViewModel = authViewModel,
@@ -87,7 +89,9 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
     val isAdmin by authViewModel.isAdmin.collectAsState()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize()
+            // SỬA: Đảm bảo nền của LazyColumn theo theme
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item {
@@ -95,23 +99,25 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
         }
 
         if (!isAdmin) {
-            item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            // SỬA: Dùng màu theme cho Divider
+            item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
             item { ProfileMenuItem(icon = Icons.Default.CloudDownload, title = "Truyện đã tải", onClick = { navController.navigate("download_manager") }) }
-            item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
             item { ProfileMenuItem(icon = Icons.Default.History, title = "Lịch sử đọc", onClick = { navController.navigate("history") }) }
-            item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
             item { ProfileMenuItem(icon = Icons.Default.Favorite, title = "Truyện yêu thích", onClick = { navController.navigate("favorite") }) }
         }
 
-        item { Divider(color = Color.LightGray, thickness = 8.dp) }
+        // SỬA: Dùng màu theme cho Divider dày
+        item { Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 8.dp) }
         item { ProfileMenuItem(icon = Icons.Default.Settings, title = "Cài đặt ứng dụng", onClick = { navController.navigate("settings") }) }
-        item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+        item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
         item { ProfileMenuItem(icon = Icons.Default.Info, title = "Giới thiệu & Hỗ trợ", onClick = { /*TODO*/ }) }
-        item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+        item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
 
         if (isAdmin) {
-             item { ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Admin Panel", onClick = { navController.navigate("ManageStoriesScreen") }) }
-             item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item { ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Admin Panel", onClick = { navController.navigate("ManageStoriesScreen") }) }
+            item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
 
         item { ProfileMenuItem(icon = Icons.Default.Logout, title = "Đăng xuất", isLogout = true, onClick = {
@@ -119,7 +125,7 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
             auth.signOut()
             onSignOut()
         }) }
-        item { Divider(color = Color.LightGray, modifier = Modifier.padding(horizontal = 16.dp)) }
+        item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
     }
 }
 
@@ -127,6 +133,8 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
 fun GuestProfileScreen(navController: NavHostController) {
     Column(
         modifier = Modifier.fillMaxSize()
+            // SỬA: Đảm bảo nền theo theme
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -136,18 +144,22 @@ fun GuestProfileScreen(navController: NavHostController) {
                 modifier = Modifier.size(70.dp).clip(CircleShape).background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = Icons.Default.Person, contentDescription = "Avatar", tint = Color.Gray, modifier = Modifier.size(40.dp))
+                // SỬA: Dùng màu theme cho Icon Avatar
+                Icon(imageVector = Icons.Default.Person, contentDescription = "Avatar", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text("Khách", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            // SỬA: Dùng màu theme cho Text
+            Text("Khách", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
 
         Column(
-             modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Đăng nhập để có trải nghiệm tốt nhất", fontSize = 18.sp, fontWeight = FontWeight.Medium)
-            Text("Lưu truyện yêu thích, lịch sử đọc và nhiều hơn nữa!", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+            // SỬA: Dùng màu theme cho Text
+            Text("Đăng nhập để có trải nghiệm tốt nhất", fontSize = 18.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            // SỬA: Dùng màu theme cho Text
+            Text("Lưu truyện yêu thích, lịch sử đọc và nhiều hơn nữa!", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = { navController.navigate("login") },
@@ -189,7 +201,9 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
     val userPhotoUrl = if (isAdmin) null else currentUser?.photoUrl
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp)
+            // SỬA: Đảm bảo nền của header theo theme
+            .background(MaterialTheme.colorScheme.background),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -206,11 +220,13 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
                 )
             } else {
                 Box(
-                    modifier = Modifier.fillMaxSize().background(Color.LightGray),
+                    // SỬA: Dùng màu theme cho nền avatar mặc định
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     val icon = if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person
-                    Icon(imageVector = icon, contentDescription = "Default Avatar", tint = Color.Gray, modifier = Modifier.size(40.dp))
+                    // SỬA: Dùng màu theme cho Icon
+                    Icon(imageVector = icon, contentDescription = "Default Avatar", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
                 }
             }
         }
@@ -218,18 +234,22 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
         Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            // SỬA: Dùng màu theme cho Text Tên
+            Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             if (!isAdmin) {
-                Text(text = userEmail, fontSize = 14.sp, color = Color.Gray)
+                // SỬA: Dùng màu theme cho Text Email
+                Text(text = userEmail, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (gender.isNotBlank()) {
-                    Text(text = "Giới tính: $gender", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+                    // SỬA: Dùng màu theme cho Text Giới tính
+                    Text(text = "Giới tính: $gender", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
-        
+
         if (!isAdmin) {
             IconButton(onClick = { navController.navigate("edit_profile") }) {
-                Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa hồ sơ")
+                // SỬA: Dùng màu theme cho Icon
+                Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa hồ sơ", tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
@@ -247,18 +267,33 @@ fun ProfileMenuItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        // Màu chữ và Icon sẽ là màu Theme, trừ khi là Đăng xuất
+        val itemColor = if (isLogout) Color.Red else MaterialTheme.colorScheme.onSurface
+        val iconTint = if (isLogout) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = if (isLogout) Color.Red else Color.Black,
+                // SỬA: Dùng màu itemColor
+                tint = iconTint,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
-            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (isLogout) Color.Red else Color.Black)
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                // SỬA: Dùng màu itemColor
+                color = itemColor
+            )
         }
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp)
+            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+            contentDescription = null,
+            // SỬA: Dùng màu theme
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(16.dp)
         )
     }
 }

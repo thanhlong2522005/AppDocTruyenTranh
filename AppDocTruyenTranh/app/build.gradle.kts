@@ -83,6 +83,8 @@ dependencies {
     implementation("com.cloudinary:cloudinary-android:2.3.1")
     implementation("androidx.compose.foundation:foundation:1.6.0")
     implementation("androidx.compose.foundation:foundation-layout:1.6.0")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
 
 

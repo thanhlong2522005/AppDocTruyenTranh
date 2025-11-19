@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,14 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appdoctruyentranh.viewmodel.ReadingFont
 import com.example.appdoctruyentranh.viewmodel.ReadingMode
 import com.example.appdoctruyentranh.PrimaryColor
+// Import các lớp cần thiết cho SettingsViewModel
+import com.example.appdoctruyentranh.viewmodel.SettingsViewModel
 // Import hàm helper từ ReadScreen.kt (Cần đảm bảo hàm này có sẵn)
 import com.example.appdoctruyentranh.getCustomFontFamily
+import androidx.compose.ui.platform.LocalContext // Cần cho ViewModel Factory
 
 // =========================================================================
-// 1. Dialog Chọn Font Chữ
+// 1. Dialog Chọn Font Chữ (Giữ nguyên)
 // =========================================================================
 
 @Composable
@@ -77,7 +83,7 @@ fun FontSettingDialog(
 }
 
 // =========================================================================
-// 2. Dialog Chọn Chế độ Lật trang
+// 2. Dialog Chọn Chế độ Lật trang (Giữ nguyên)
 // =========================================================================
 
 @Composable
@@ -134,15 +140,21 @@ fun ModeSettingDialog(
 }
 
 // =========================================================================
-// 3. Dialog Chọn Theme (Sáng/Tối)
+// 3. Dialog Chọn Theme (Sáng/Tối) - FIX LỖI CRASH VÀ LOGIC
 // =========================================================================
 
 @Composable
 fun ThemeSettingDialog(
-    currentIsDarkMode: Boolean,
-    onThemeSelected: (Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // FIX CRASH: Sử dụng Factory
+    settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModel.Factory(LocalContext.current)
+    )
 ) {
+    // 1. Lắng nghe trạng thái Dark Mode hiện tại từ ViewModel
+    val uiState by settingsViewModel.uiState.collectAsState()
+    val currentIsDarkMode = uiState.isDarkMode
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -162,7 +174,8 @@ fun ThemeSettingDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                onThemeSelected(isDark)
+                                // 2. Gọi hàm setDarkMode() của ViewModel để lưu trạng thái
+                                settingsViewModel.setDarkMode(isDark)
                                 onDismiss()
                             }
                             .padding(vertical = 12.dp),
@@ -173,7 +186,8 @@ fun ThemeSettingDialog(
                             text = label,
                             fontSize = 16.sp,
                             fontWeight = if (isDark == currentIsDarkMode) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isDark == currentIsDarkMode) PrimaryColor else Color.Black
+                            // Dùng màu Theme
+                            color = if (isDark == currentIsDarkMode) PrimaryColor else MaterialTheme.colorScheme.onSurface
                         )
                         if (isDark == currentIsDarkMode) {
                             Icon(Icons.Default.Check, contentDescription = "Đã chọn", tint = PrimaryColor)
