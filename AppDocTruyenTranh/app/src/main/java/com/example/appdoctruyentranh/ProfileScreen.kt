@@ -17,7 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,10 +28,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import coil.compose.rememberAsyncImagePainter
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.facebook.login.LoginManager
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
@@ -62,6 +68,7 @@ fun ProfileScreen(navController: NavHostController) {
                 LoggedInProfileScreen(
                     navController = navController,
                     authViewModel = authViewModel,
+                    currentUser = currentUser, // Truyền currentUser xuống
                     onSignOut = {
                         currentUser = null
                         authViewModel.checkAdminStatus()
@@ -75,7 +82,7 @@ fun ProfileScreen(navController: NavHostController) {
 }
 
 @Composable
-fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthViewModel, onSignOut: () -> Unit) {
+fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthViewModel, currentUser: FirebaseUser?, onSignOut: () -> Unit) {
     val auth = FirebaseAuth.getInstance()
     val isAdmin by authViewModel.isAdmin.collectAsState()
 
@@ -84,7 +91,7 @@ fun LoggedInProfileScreen(navController: NavHostController, authViewModel: AuthV
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item {
-            ProfileHeader(navController = navController, isAdmin = isAdmin)
+            ProfileHeader(navController = navController, isAdmin = isAdmin, currentUser = currentUser) // Truyền currentUser xuống
         }
 
         if (!isAdmin) {
@@ -122,16 +129,11 @@ fun GuestProfileScreen(navController: NavHostController) {
         modifier = Modifier.fillMaxSize()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(70.dp)
-                    .clip(CircleShape)
-                    .background(Color.LightGray),
+                modifier = Modifier.size(70.dp).clip(CircleShape).background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(imageVector = Icons.Default.Person, contentDescription = "Avatar", tint = Color.Gray, modifier = Modifier.size(40.dp))
@@ -141,9 +143,7 @@ fun GuestProfileScreen(navController: NavHostController) {
         }
 
         Column(
-             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp),
+             modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Đăng nhập để có trải nghiệm tốt nhất", fontSize = 18.sp, fontWeight = FontWeight.Medium)
@@ -162,55 +162,71 @@ fun GuestProfileScreen(navController: NavHostController) {
 
 
 @Composable
-fun ProfileHeader(navController: NavHostController, isAdmin: Boolean) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
+fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUser: FirebaseUser?) {
+    val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
-
     var gender by remember { mutableStateOf("") }
 
-    LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-            firestore.collection("users").document(currentUser.uid).get()
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        gender = document.getString("gender") ?: ""
+    val imageLoader = ImageLoader.Builder(context)
+        .components { add(SvgDecoder.Factory()) }
+        .build()
+
+    if (!isAdmin) {
+        LaunchedEffect(currentUser) {
+            if (currentUser != null) {
+                firestore.collection("users").document(currentUser.uid).get()
+                    .addOnSuccessListener { document ->
+                        if (document != null && document.exists()) {
+                            gender = document.getString("gender") ?: ""
+                        }
                     }
-                }
+            }
         }
     }
 
-    val userName = currentUser?.displayName ?: "Tên Người Dùng"
+    val userName = if (isAdmin) "Admin" else currentUser?.displayName ?: "Tên Người Dùng"
     val userEmail = currentUser?.email ?: "user@example.com"
-    val userPhotoUrl = currentUser?.photoUrl
+    val userPhotoUrl = if (isAdmin) null else currentUser?.photoUrl
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
-                .size(70.dp)
-                .clip(CircleShape)
-                .background(Color.LightGray),
+            modifier = Modifier.size(70.dp).clip(CircleShape),
             contentAlignment = Alignment.Center
         ) {
             if (userPhotoUrl != null) {
-                Image(painter = rememberAsyncImagePainter(model = userPhotoUrl), contentDescription = "Avatar", modifier = Modifier.fillMaxSize())
+                AsyncImage(
+                    model = userPhotoUrl,
+                    imageLoader = imageLoader,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
             } else {
-                Icon(imageVector = Icons.Default.Person, contentDescription = "Avatar", tint = Color.Gray, modifier = Modifier.size(40.dp))
-            }
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-            Text(text = userEmail, fontSize = 14.sp, color = Color.Gray)
-            if (gender.isNotBlank()) {
-                Text(text = "Giới tính: $gender", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color.LightGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val icon = if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person
+                    Icon(imageVector = icon, contentDescription = "Default Avatar", tint = Color.Gray, modifier = Modifier.size(40.dp))
+                }
             }
         }
 
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            if (!isAdmin) {
+                Text(text = userEmail, fontSize = 14.sp, color = Color.Gray)
+                if (gender.isNotBlank()) {
+                    Text(text = "Giới tính: $gender", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        }
+        
         if (!isAdmin) {
             IconButton(onClick = { navController.navigate("edit_profile") }) {
                 Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa hồ sơ")
@@ -227,10 +243,7 @@ fun ProfileMenuItem(
     isLogout: Boolean = false
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
