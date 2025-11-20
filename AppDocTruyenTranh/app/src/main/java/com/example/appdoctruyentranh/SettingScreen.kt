@@ -2,6 +2,7 @@
 
 package com.example.appdoctruyentranh
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,26 +24,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.appdoctruyentranh.viewmodel.ChapterReaderViewModel
 import com.example.appdoctruyentranh.viewmodel.ReadingMode
-import com.example.appdoctruyentranh.PrimaryColor
-import com.example.appdoctruyentranh.viewmodel.SettingsViewModel // IMPORT THÊM SETTINGS VIEWMODEL
-import androidx.compose.ui.platform.LocalContext // Cần cho ViewModel Factory
+import com.example.appdoctruyentranh.viewmodel.SettingsViewModel
+import com.google.firebase.auth.FirebaseAuth
 
-// Mock data cho Cài đặt
 data class SettingItem(val id: String, val title: String, val icon: ImageVector, val route: String? = null)
 
-// Giữ nguyên settingItems
 val settingItems = listOf(
     SettingItem("group_read", "Tùy chỉnh đọc", Icons.Default.MenuBook),
     SettingItem("font", "Font chữ", Icons.Default.FontDownload),
     SettingItem("page_mode", "Chế độ lật trang", Icons.Default.Pages),
     SettingItem("theme", "Chế độ giao diện", Icons.Default.LightMode),
 
-    // PHẦN TẢI XUỐNG
     SettingItem("group_download", "Quản lý File", Icons.Default.Download),
     SettingItem("download_manager", "Quản lý Tải xuống", Icons.Default.DownloadForOffline, "download_manager"),
 
     SettingItem("group_account", "Tài khoản", Icons.Default.Person),
-    SettingItem("change_pass", "Đổi mật khẩu", Icons.Default.Key, "reset_password"),
+    SettingItem("change_pass", "Đổi mật khẩu", Icons.Default.Key),
     SettingItem("notifications", "Quản lý thông báo", Icons.Default.Notifications),
 
     SettingItem("group_support", "Hỗ trợ", Icons.Default.ContactSupport),
@@ -52,8 +50,7 @@ val settingItems = listOf(
 @Composable
 fun SettingScreen(
     navController: NavHostController,
-    chapterReaderViewModel: ChapterReaderViewModel = viewModel(), // Giữ nguyên
-    // FIX CRASH: Sử dụng Factory
+    chapterReaderViewModel: ChapterReaderViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.Factory(LocalContext.current)
     )
@@ -62,9 +59,9 @@ fun SettingScreen(
     var showModeDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
 
-    // Lắng nghe trạng thái Dark Mode từ SettingsViewModel
     val isDarkMode by settingsViewModel.uiState.collectAsState()
-
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
 
     Scaffold(
         topBar = {
@@ -104,27 +101,39 @@ fun SettingScreen(
                     else -> {
                         item {
                             val detailText = when(item.id) {
-                                // SỬ DỤNG chapterReaderViewModel cho Font và Mode
                                 "font" -> chapterReaderViewModel.currentFont.collectAsState().value.fontName
                                 "page_mode" -> if (chapterReaderViewModel.readingMode.collectAsState().value == ReadingMode.VERTICAL_SCROLL) "Cuộn dọc" else "Lật ngang"
-
-                                // SỬ DỤNG settingsViewModel cho Theme
                                 "theme" -> if (isDarkMode.isDarkMode) "Tối" else "Sáng"
                                 else -> null
                             }
 
                             SettingRow(item = item, detailText = detailText) {
                                 when (item.id) {
-                                    // Mở Dialogs
                                     "font" -> showFontDialog = true
                                     "page_mode" -> showModeDialog = true
-                                    "theme" -> showThemeDialog = true // Mở Theme Dialog
-
-                                    // Điều hướng
-                                    "change_pass" -> navController.navigate("reset_password")
+                                    "theme" -> showThemeDialog = true
                                     "download_manager" -> navController.navigate("download_manager")
                                     "report" -> navController.navigate("report_feedback")
-
+                                    "change_pass" -> {
+                                        val user = auth.currentUser
+                                        if (user != null && user.email != null) {
+                                            val isEmailPasswordUser = user.providerData.any { it.providerId == "password" }
+                                            if (isEmailPasswordUser) {
+                                                auth.sendPasswordResetEmail(user.email!!)
+                                                    .addOnCompleteListener { task ->
+                                                        if (task.isSuccessful) {
+                                                            Toast.makeText(context, "Email đặt lại mật khẩu đã được gửi!", Toast.LENGTH_LONG).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Lỗi: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    }
+                                            } else {
+                                                Toast.makeText(context, "Chức năng này không dành cho tài khoản Google/Facebook.", Toast.LENGTH_LONG).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "Vui lòng đăng nhập để sử dụng chức năng này.", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
                                     "notifications" -> { /* Toggle Logic */ }
                                     else -> { /* Navigate or handle logic */ }
                                 }
@@ -137,7 +146,6 @@ fun SettingScreen(
         }
     }
 
-    // Dialogs
     if (showFontDialog) {
         FontSettingDialog(
             currentFont = chapterReaderViewModel.currentFont.collectAsState().value,
@@ -155,14 +163,12 @@ fun SettingScreen(
     }
 
     if (showThemeDialog) {
-        // FIX CRASH: ThemeSettingDialog đã tự xử lý ViewModel bên trong
         ThemeSettingDialog(
             onDismiss = { showThemeDialog = false }
         )
     }
 }
 
-// Giữ nguyên SettingRow (Đã sửa để dùng màu Theme)
 @Composable
 fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Unit) {
     Row(
@@ -177,7 +183,7 @@ fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Uni
             Icon(
                 imageVector = item.icon,
                 contentDescription = item.title,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant, // Dùng màu Theme
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -185,29 +191,26 @@ fun SettingRow(item: SettingItem, detailText: String? = null, onClick: () -> Uni
                 text = item.title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface // Dùng màu Theme
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
-        // Tùy chọn hiển thị chi tiết hoặc switch
         if (item.id == "notifications") {
-            // Logic cho Switch
             var isChecked by remember { mutableStateOf(true) }
-            Switch(checked = isChecked, onCheckedChange = { isChecked = it }, enabled = detailText == null) // Tạm thời
+            Switch(checked = isChecked, onCheckedChange = { isChecked = it }, enabled = detailText == null)
         } else if (detailText != null) {
-            // Logic hiển thị chi tiết và mũi tên
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = detailText,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, // Dùng màu Theme
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), // Dùng màu Theme
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.size(16.dp)
                 )
             }
