@@ -15,12 +15,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appdoctruyentranh.ui.theme.AppDocTruyenTranhTheme
 import com.example.appdoctruyentranh.HomeScreen
 import com.example.appdoctruyentranh.SearchScreen
 import com.example.appdoctruyentranh.GenreScreen
 import com.example.appdoctruyentranh.MangaDetailScreen
 import com.example.appdoctruyentranh.FavoriteScreen
+import com.example.appdoctruyentranh.viewmodel.AuthViewModel
+import com.example.appdoctruyentranh.viewmodel.HomeViewModel
 
 
 class MainActivity : ComponentActivity() {
@@ -41,7 +44,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-
+    val homeViewModel: HomeViewModel = viewModel()
+    val authViewModel: AuthViewModel = viewModel()
     NavHost(navController = navController, startDestination = "splash") {
         // ... (các màn hình khác giữ nguyên)
 
@@ -64,8 +68,11 @@ fun AppNavigation() {
             ResetPasswordScreen(navController = navController)
         }
         composable("home") {
-            HomeScreen(navController = navController)
+
+            HomeScreen(navController, homeViewModel, authViewModel)
         }
+
+
         composable("search") {
             SearchScreen(navController = navController)
         }

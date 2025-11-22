@@ -20,7 +20,10 @@ class HomeViewModel : ViewModel() {
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     init {
-        loadHomeData()
+
+        if (_uiState.value.isLoading && _uiState.value.banners.isEmpty()) {
+            loadHomeData()
+        }
     }
 
     fun refresh() {

@@ -59,7 +59,7 @@ val totalChapters: Int
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: HomeViewModel = viewModel(),
+    viewModel: HomeViewModel ,
     authViewModel: AuthViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
