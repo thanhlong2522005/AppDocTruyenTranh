@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.appdoctruyentranh.model.Chapter
 import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
@@ -116,10 +119,18 @@ fun DetailSummarySection(
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Card(modifier = Modifier.size(110.dp, 160.dp), shape = RoundedCornerShape(8.dp)) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Bookmark, contentDescription = "Cover", tint = TextSecondary)
-                }
+            Card(
+                modifier = Modifier.size(110.dp, 160.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                AsyncImage(
+                    model = detail.imageUrl,
+                    contentDescription = detail.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    placeholder = painterResource(android.R.drawable.ic_menu_gallery),
+                    error = painterResource(android.R.drawable.stat_notify_error)
+                )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
