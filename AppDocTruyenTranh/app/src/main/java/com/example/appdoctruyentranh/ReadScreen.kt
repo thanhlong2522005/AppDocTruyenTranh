@@ -124,7 +124,14 @@ fun ReadScreen(
 
     val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
     val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
-    val totalChapters = story?.chapters?.size ?: 1
+
+// SỬA TỪ ĐÂY: dùng lastChapterNumber thay vì chapters.size
+    val totalChapters = when {
+        (story?.lastChapterNumber ?: 0) > 0 -> story!!.lastChapterNumber
+        (story?.totalChapters ?: 0) > 0 -> story!!.totalChapters
+        else -> 999 // fallback cực lớn để chắc chắn không bị chặn
+    }
+
     val hasPrev = chapterIdInt > 1
     val hasNext = chapterIdInt < totalChapters
 
