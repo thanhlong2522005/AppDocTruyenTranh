@@ -146,6 +146,11 @@ fun AppNavigation() {
             AboutSupportScreen(navController = navController)
         }
 
+        // ⭐ THÊM MÀN HÌNH BÁO CÁO PHẢN HỒI
+        composable("report_feedback") {
+            ReportFeedbackScreen(navController = navController)
+        }
+
 
         composable(
             route = "admin_upload?mangaId={mangaId}",

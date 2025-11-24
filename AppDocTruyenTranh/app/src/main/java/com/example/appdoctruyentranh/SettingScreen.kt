@@ -43,6 +43,8 @@ val settingItems = listOf(
     SettingItem("notifications", "Quản lý thông báo", Icons.Default.Notifications),
 
     SettingItem("group_support", "Hỗ trợ", Icons.Default.ContactSupport),
+    // ⭐ THÊM MỤC GIỚI THIỆU & HỖ TRỢ
+    SettingItem("about_support", "Giới thiệu & Hỗ trợ", Icons.Default.Info, "about_support"),
     SettingItem("report", "Báo cáo lỗi / Phản hồi", Icons.Default.Feedback, "report_feedback"),
 )
 
@@ -113,6 +115,9 @@ fun SettingScreen(
                                     "page_mode" -> showModeDialog = true
                                     "theme" -> showThemeDialog = true
                                     "download_manager" -> navController.navigate("download_manager")
+                                    // ⭐ ĐIỀU HƯỚNG MỤC MỚI
+                                    "about_support" -> navController.navigate("about_support")
+                                    // ⭐ MỤC REPORT VẪN GIỮ NGUYÊN
                                     "report" -> navController.navigate("report_feedback")
                                     "change_pass" -> {
                                         val user = auth.currentUser
