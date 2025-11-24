@@ -32,7 +32,6 @@ import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun FavoriteScreen(navController: NavHostController) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
     val authViewModel: AuthViewModel = viewModel()
     val isAdmin by authViewModel.isAdmin.collectAsState()
 
@@ -40,100 +39,96 @@ fun FavoriteScreen(navController: NavHostController) {
         authViewModel.checkAdminStatus()
     }
 
-    if (currentUser == null) {
-        PleaseLoginScreen(navController = navController, title = "Truyện yêu thích")
-    } else {
-        val viewModel: FavoriteViewModel = viewModel()
-        val stories by viewModel.favoriteStories.collectAsState()
-        val isLoading by viewModel.isLoading.collectAsState()
+    val viewModel: FavoriteViewModel = viewModel()
+    val stories by viewModel.favoriteStories.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-        var showDeleteDialog by remember { mutableStateOf<Story?>(null) }
-        LaunchedEffect(true) {
-            viewModel.refreshFavorites()
-        }
-        Scaffold(
-            topBar = {
-                AppHeader(
-                    navigationIcon = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Quay lại",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .padding(16.dp)
-                                .clickable { navController.popBackStack() }
-                        )
-                    }
-                )
-            },
-            bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                Text(
-                    text = "Truyện Yêu Thích",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(16.dp)
-                )
-                Divider(color = Color.LightGray, thickness = 1.dp)
+    var showDeleteDialog by remember { mutableStateOf<Story?>(null) }
+    LaunchedEffect(true) {
+        viewModel.refreshFavorites()
+    }
+    Scaffold(
+        topBar = {
+            AppHeader(
+                navigationIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .padding(16.dp)
+                            .clickable { navController.popBackStack() }
+                    )
+                }
+            )
+        },
+        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            Text(
+                text = "Truyện Yêu Thích",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(16.dp)
+            )
+            Divider(color = Color.LightGray, thickness = 1.dp)
 
-                when {
-                    isLoading -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = PrimaryColor)
-                        }
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = PrimaryColor)
                     }
-                    stories.isEmpty() -> {
-                        EmptyListMessage(message = "Bạn chưa thêm truyện nào vào danh sách yêu thích.")
-                    }
-                    else -> {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(stories) { story ->
-                                FavoriteStoryItem(
-                                    story = story,
-                                    onStoryClick = {
-                                        navController.navigate("manga_detail/${story.id}")
-                                    },
-                                    onRemoveClick = {
-                                        showDeleteDialog = story
-                                    }
-                                )
-                            }
+                }
+                stories.isEmpty() -> {
+                    EmptyListMessage(message = "Bạn chưa thêm truyện nào vào danh sách yêu thích.")
+                }
+                else -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(stories) { story ->
+                            FavoriteStoryItem(
+                                story = story,
+                                onStoryClick = {
+                                    navController.navigate("manga_detail/${story.id}")
+                                },
+                                onRemoveClick = {
+                                    showDeleteDialog = story
+                                }
+                            )
                         }
                     }
                 }
             }
         }
+    }
 
-        showDeleteDialog?.let { story ->
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = null },
-                title = { Text("Xóa khỏi yêu thích?") },
-                text = { Text("Bạn có chắc muốn xóa \"${story.title}\" khỏi danh sách yêu thích?") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        viewModel.removeFromFavorites(story.id) {
-                            showDeleteDialog = null
-                        }
-                    }) {
-                        Text("Xóa", color = Color.Red)
+    showDeleteDialog?.let { story ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("Xóa khỏi yêu thích?") },
+            text = { Text("Bạn có chắc muốn xóa \"${story.title}\" khỏi danh sách yêu thích?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeFromFavorites(story.id) {
+                        showDeleteDialog = null
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = null }) {
-                        Text("Hủy")
-                    }
+                }) {
+                    Text("Xóa", color = Color.Red)
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
     }
 }
 

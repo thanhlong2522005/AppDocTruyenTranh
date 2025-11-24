@@ -33,7 +33,6 @@ import com.example.appdoctruyentranh.model.Chapter
 import androidx.lifecycle.viewmodel.compose.viewModel // ⭐️ Cần import này
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.HistoryViewModel
-import com.google.firebase.auth.FirebaseAuth
 
 data class HistoryItem(
     val story: Story,
@@ -41,13 +40,8 @@ data class HistoryItem(
     val readTime: String    // Ví dụ: "Vừa xong"
 )
 
-// =========================================================================
-// Màn hình Chính: HistoryScreen (Đã sửa để dùng ViewModel)
-// =========================================================================
-
 @Composable
 fun HistoryScreen(navController: NavHostController) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
     val authViewModel: AuthViewModel = viewModel()
     val isAdmin by authViewModel.isAdmin.collectAsState()
     
@@ -55,76 +49,72 @@ fun HistoryScreen(navController: NavHostController) {
         authViewModel.checkAdminStatus()
     }
 
-    if (currentUser == null) {
-        PleaseLoginScreen(navController = navController, title = "Lịch sử đọc")
-    } else {
-        val viewModel: HistoryViewModel = viewModel()
-        val historyList by viewModel.historyList.collectAsState()
-        val isLoading by viewModel.isLoading.collectAsState()
+    val viewModel: HistoryViewModel = viewModel()
+    val historyList by viewModel.historyList.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-        LaunchedEffect(key1 = true) {
-            viewModel.loadReadHistory()
-        }
-        Scaffold(
-            topBar = {
-                AppHeader(
-                    navigationIcon = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Quay lại",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .padding(16.dp)
-                                .clickable { navController.popBackStack() }
-                        )
-                    }
-                )
-            },
-            bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                Text(
-                    text = "Lịch sử Đọc",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-                Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    LaunchedEffect(key1 = true) {
+        viewModel.loadReadHistory()
+    }
+    Scaffold(
+        topBar = {
+            AppHeader(
+                navigationIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .padding(16.dp)
+                            .clickable { navController.popBackStack() }
+                    )
+                }
+            )
+        },
+        bottomBar = { AppBottomNavigationBar(navController = navController, isAdmin = isAdmin) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            Text(
+                text = "Lịch sử Đọc",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp))
 
-                when {
-                    isLoading -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = PrimaryColor)
-                        }
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = PrimaryColor)
                     }
-                    historyList.isEmpty() -> {
-                        EmptyHistoryMessage(message = "Bạn chưa đọc truyện nào gần đây.")
-                    }
-                    else -> {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(historyList) { item ->
-                                HistoryStoryItem(
-                                    item = item,
-                                    onStoryClick = {
-                                        navController.navigate("manga_detail/${item.story.id}")
-                                    },
-                                    onResumeReadClick = {
-                                        navController.navigate("manga_detail/${item.story.id}")
-                                    },
-                                    onDeleteClick = {
-                                        viewModel.removeHistoryItem(item.story.id)
-                                    }
-                                )
-                            }
+                }
+                historyList.isEmpty() -> {
+                    EmptyHistoryMessage(message = "Bạn chưa đọc truyện nào gần đây.")
+                }
+                else -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(historyList) { item ->
+                            HistoryStoryItem(
+                                item = item,
+                                onStoryClick = {
+                                    navController.navigate("manga_detail/${item.story.id}")
+                                },
+                                onResumeReadClick = {
+                                    navController.navigate("manga_detail/${item.story.id}")
+                                },
+                                onDeleteClick = {
+                                    viewModel.removeHistoryItem(item.story.id)
+                                }
+                            )
                         }
                     }
                 }
@@ -132,10 +122,6 @@ fun HistoryScreen(navController: NavHostController) {
         }
     }
 }
-
-// =========================================================================
-// Các Composable Thành phần Lịch sử (Chỉnh sửa tham số)
-// =========================================================================
 
 @Composable
 fun HistoryStoryItem(

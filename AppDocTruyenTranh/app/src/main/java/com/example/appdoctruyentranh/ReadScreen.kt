@@ -43,40 +43,8 @@ import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.PagerState
 import com.google.accompanist.pager.rememberPagerState
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
-@Composable
-fun PleaseLoginScreen(navController: NavHostController, title: String) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(title, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        containerColor = Color.White
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(it),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(imageVector = Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(100.dp), tint = Color.LightGray)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Vui lòng đăng nhập để sử dụng tính năng này", textAlign = TextAlign.Center, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { navController.navigate("login") }) {
-                Text("Đăng nhập / Đăng ký")
-            }
-        }
-    }
-}
 @Composable
 fun getCustomFontFamily(readingFont: ReadingFont): FontFamily {
     return when (readingFont) {
@@ -93,160 +61,154 @@ fun ReadScreen(
     chapterId: String,      // String từ route → parse thành Int
     viewModel: ChapterReaderViewModel = viewModel()
 ) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
+    val chapterIdInt = remember(chapterId) { chapterId.toIntOrNull() ?: 1 }
 
-    if (currentUser == null) {
-        PleaseLoginScreen(navController = navController, title = "Đọc truyện")
-    } else {
-        val chapterIdInt = remember(chapterId) { chapterId.toIntOrNull() ?: 1 }
+    val isMenuVisible by viewModel.isMenuVisible.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val currentFont by viewModel.currentFont.collectAsState()
+    val readingMode by viewModel.readingMode.collectAsState()
+    val displayFontFamily = getCustomFontFamily(currentFont)
 
-        val isMenuVisible by viewModel.isMenuVisible.collectAsState()
-        val isDarkMode by viewModel.isDarkMode.collectAsState()
-        val currentFont by viewModel.currentFont.collectAsState()
-        val readingMode by viewModel.readingMode.collectAsState()
-        val displayFontFamily = getCustomFontFamily(currentFont)
+    val chapterData by viewModel.chapterData.collectAsState()
+    val story by viewModel.currentStory.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.errorMessage.collectAsState()
 
-        val chapterData by viewModel.chapterData.collectAsState()
-        val story by viewModel.currentStory.collectAsState()
-        val isLoading by viewModel.isLoading.collectAsState()
-        val error by viewModel.errorMessage.collectAsState()
+    val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
 
-        val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showCommentDialog by remember { mutableStateOf(false) }
 
-        var showReportDialog by remember { mutableStateOf(false) }
-        var showCommentDialog by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val pagerState = rememberPagerState()
+    val coroutineScope = rememberCoroutineScope()
 
-        val listState = rememberLazyListState()
-        val pagerState = rememberPagerState()
-        val coroutineScope = rememberCoroutineScope()
+    LaunchedEffect(mangaId, chapterIdInt) {
+        viewModel.loadChapter(mangaId, chapterIdInt)
+    }
 
-        LaunchedEffect(mangaId, chapterIdInt) {
-            viewModel.loadChapter(mangaId, chapterIdInt)
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = PrimaryColor)
         }
+        return
+    }
 
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryColor)
-            }
-            return
-        }
-
-        error?.let {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(it, color = Color.Red, fontSize = 16.sp)
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = { viewModel.loadChapter(mangaId, chapterIdInt) },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-                    ) {
-                        Text("Thử lại")
-                    }
+    error?.let {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(it, color = Color.Red, fontSize = 16.sp)
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.loadChapter(mangaId, chapterIdInt) },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                ) {
+                    Text("Thử lại")
                 }
             }
-            return
         }
+        return
+    }
 
-        if (chapterData.pages.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Không có trang nào", color = Color.Gray)
-            }
-            return
+    if (chapterData.pages.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Không có trang nào", color = Color.Gray)
         }
+        return
+    }
 
-        val currentPage = when (readingMode) {
-            ReadingMode.VERTICAL_SCROLL -> listState.firstVisibleItemIndex + 1
-            ReadingMode.HORIZONTAL_PAGINATION -> pagerState.currentPage + 1
-        }
+    val currentPage = when (readingMode) {
+        ReadingMode.VERTICAL_SCROLL -> listState.firstVisibleItemIndex + 1
+        ReadingMode.HORIZONTAL_PAGINATION -> pagerState.currentPage + 1
+    }
 
-        val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
-        val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
-        val totalChapters = story?.chapters?.size ?: 1
-        val hasPrev = chapterIdInt > 1
-        val hasNext = chapterIdInt < totalChapters
+    val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
+    val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
+    val totalChapters = story?.chapters?.size ?: 1
+    val hasPrev = chapterIdInt > 1
+    val hasNext = chapterIdInt < totalChapters
 
-        Scaffold(
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgColor)
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor)
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(bgColor)
-                    .padding(paddingValues)
-            ) {
-                when (readingMode) {
-                    ReadingMode.VERTICAL_SCROLL -> {
-                        VerticalReader(
-                            pages = chapterData.pages,
-                            isDarkMode = isDarkMode,
-                            listState = listState,
-                            onToggleMenu = { viewModel.toggleMenuVisibility() }
-                        )
-                    }
-                    ReadingMode.HORIZONTAL_PAGINATION -> {
-                        HorizontalPagerReader(
-                            pages = chapterData.pages,
-                            isDarkMode = isDarkMode,
-                            pagerState = pagerState,
-                            onToggleMenu = { viewModel.toggleMenuVisibility() }
-                        )
-                    }
+                .padding(paddingValues)
+        ) {
+            when (readingMode) {
+                ReadingMode.VERTICAL_SCROLL -> {
+                    VerticalReader(
+                        pages = chapterData.pages,
+                        isDarkMode = isDarkMode,
+                        listState = listState,
+                        onToggleMenu = { viewModel.toggleMenuVisibility() }
+                    )
                 }
-
-                MenuTopBar(
-                    isVisible = isMenuVisible,
-                    title = "${story?.title ?: "Truyện"} - $chapterTitle",
-                    onBack = { navController.popBackStack() },
-                    onSettingClick = { navController.navigate("settings") }
-                )
-
-                MenuBottomBar(
-                    isVisible = isMenuVisible,
-                    chapterId = chapterIdInt,
-                    totalChapters = totalChapters,
-                    totalPages = chapterData.pages.size,
-                    currentPage = currentPage.coerceAtMost(chapterData.pages.size),
-                    hasPrev = hasPrev,
-                    hasNext = hasNext,
-                    onPrevClick = {
-                        if (hasPrev) {
-                            coroutineScope.launch {
-                                navController.navigate("read/$mangaId/${chapterIdInt - 1}")
-                            }
-                        }
-                    },
-                    onNextClick = {
-                        if (hasNext) {
-                            coroutineScope.launch {
-                                navController.navigate("read/$mangaId/${chapterIdInt + 1}")
-                            }
-                        }
-                    },
-                    onToggleDarkMode = { viewModel.toggleDarkMode() },
-                    onReportClick = { showReportDialog = true },
-                    onCommentClick = { showCommentDialog = true },
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
+                ReadingMode.HORIZONTAL_PAGINATION -> {
+                    HorizontalPagerReader(
+                        pages = chapterData.pages,
+                        isDarkMode = isDarkMode,
+                        pagerState = pagerState,
+                        onToggleMenu = { viewModel.toggleMenuVisibility() }
+                    )
+                }
             }
-        }
 
-        if (showReportDialog) {
-            SimpleAlertDialog(
-                title = "Báo cáo lỗi",
-                message = "Gửi báo cáo về chương này?",
-                onDismiss = { showReportDialog = false }
+            MenuTopBar(
+                isVisible = isMenuVisible,
+                title = "${story?.title ?: "Truyện"} - $chapterTitle",
+                onBack = { navController.popBackStack() },
+                onSettingClick = { navController.navigate("settings") }
+            )
+
+            MenuBottomBar(
+                isVisible = isMenuVisible,
+                chapterId = chapterIdInt,
+                totalChapters = totalChapters,
+                totalPages = chapterData.pages.size,
+                currentPage = currentPage.coerceAtMost(chapterData.pages.size),
+                hasPrev = hasPrev,
+                hasNext = hasNext,
+                onPrevClick = {
+                    if (hasPrev) {
+                        coroutineScope.launch {
+                            navController.navigate("read/$mangaId/${chapterIdInt - 1}")
+                        }
+                    }
+                },
+                onNextClick = {
+                    if (hasNext) {
+                        coroutineScope.launch {
+                            navController.navigate("read/$mangaId/${chapterIdInt + 1}")
+                        }
+                    }
+                },
+                onToggleDarkMode = { viewModel.toggleDarkMode() },
+                onReportClick = { showReportDialog = true },
+                onCommentClick = { showCommentDialog = true },
+                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
+    }
 
-        if (showCommentDialog) {
-            SimpleAlertDialog(
-                title = "Bình luận",
-                message = "Tính năng bình luận đang phát triển.",
-                onDismiss = { showCommentDialog = false }
-            )
-        }
+    if (showReportDialog) {
+        SimpleAlertDialog(
+            title = "Báo cáo lỗi",
+            message = "Gửi báo cáo về chương này?",
+            onDismiss = { showReportDialog = false }
+        )
+    }
+
+    if (showCommentDialog) {
+        SimpleAlertDialog(
+            title = "Bình luận",
+            message = "Tính năng bình luận đang phát triển.",
+            onDismiss = { showCommentDialog = false }
+        )
     }
 }
 

@@ -14,7 +14,6 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,81 +45,10 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
         authViewModel.checkAdminStatus()
     }
 
-    if (isAdmin) {
-        AdminMangaDetailScreen(navController, mangaDetail, isLoading, error)
-    } else {
-        UserMangaDetailScreen(navController, mangaDetail, isLoading, error, viewModel, isAdmin)
-    }
+    // LUÔN DÙNG GIAO DIỆN NGƯỜI DÙNG
+    UserMangaDetailScreen(navController, mangaDetail, isLoading, error, viewModel, isAdmin)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AdminMangaDetailScreen(navController: NavHostController, mangaDetail: Story?, isLoading: Boolean, error: String?) {
-     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(mangaDetail?.title ?: "Quản lý truyện", color = Color.White, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryColor)
-            )
-        }
-    ) { paddingValues ->
-         when {
-            isLoading -> Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            error != null -> Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) { Text(error) }
-            mangaDetail != null -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp)
-                ) {
-                    Text("Bạn đang ở chế độ Quản trị viên cho truyện này.", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp))
-                    
-                    // Admin Actions
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Button(onClick = { navController.navigate("edit_story/${mangaDetail.id}") }, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Sửa thông tin")
-                        }
-                        Button(onClick = { navController.navigate("admin_upload?mangaId=${mangaDetail.id}") }, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Thêm chương")
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Divider()
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Chapter List for Admin
-                    Text("Danh sách chương (${mangaDetail.chapters.size})", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (mangaDetail.chapters.isEmpty()) {
-                        Text("Chưa có chương nào.", color = TextSecondary, modifier = Modifier.padding(vertical = 16.dp))
-                    } else {
-                        Column {
-                             mangaDetail.chapters.forEach { chapter ->
-                                ChapterItem(chapter = chapter) {
-                                    navController.navigate("read/${mangaDetail.id}/${chapter.id}")
-                                }
-                                Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
