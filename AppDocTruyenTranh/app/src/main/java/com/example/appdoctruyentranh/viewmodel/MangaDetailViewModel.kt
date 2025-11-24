@@ -7,6 +7,8 @@ import com.example.appdoctruyentranh.model.Story
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.example.appdoctruyentranh.model.Comment
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.FirebaseAuth
 
 class MangaDetailViewModel : ViewModel() {
@@ -22,6 +24,65 @@ class MangaDetailViewModel : ViewModel() {
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> get() = _error
+
+    private val _comments = MutableStateFlow<List<Comment>>(emptyList())
+    val comments: StateFlow<List<Comment>> get() = _comments
+
+    private val _isCommentLoading = MutableStateFlow(false)
+    val isCommentLoading: StateFlow<Boolean> get() = _isCommentLoading
+
+    private val _commentError = MutableStateFlow<String?>(null)
+    val commentError: StateFlow<String?> get() = _commentError
+
+    // ===========================================================
+// 🔹 TẢI BÌNH LUẬN
+// ===========================================================
+    fun loadComments(mangaId: String) {
+        viewModelScope.launch {
+            _isCommentLoading.value = true
+            _commentError.value = null
+            try {
+                val result = repository.fetchComments(mangaId) // Gọi Repository
+                _comments.value = result
+            } catch (e: Exception) {
+                _commentError.value = "Lỗi tải bình luận: ${e.message}"
+                _comments.value = emptyList()
+            } finally {
+                _isCommentLoading.value = false
+            }
+        }
+    }
+
+    // ===========================================================
+// 💬 GỬI BÌNH LUẬN MỚI
+// ===========================================================
+    fun postComment(storyId: String, content: String, user: FirebaseUser?) {
+        if (user == null) {
+            _commentError.value = "Vui lòng đăng nhập để bình luận."
+            return
+        }
+        if (content.isBlank()) return // Bỏ qua nếu nội dung rỗng
+
+        viewModelScope.launch {
+            val newComment = Comment(
+                userId = user.uid,
+                // Lấy thông tin người dùng từ Firebase Auth
+                userName = user.displayName ?: "Ẩn danh",
+                userAvatarUrl = user.photoUrl?.toString() ?: "" ,
+                content = content.trim()
+            )
+            try {
+                // 1. Gửi lên Firestore qua Repository
+                repository.postComment(storyId, newComment)
+
+                // 2. Tải lại danh sách để UI hiển thị bình luận mới nhất
+                loadComments(storyId)
+
+            } catch (e: Exception) {
+                _commentError.value = "Gửi bình luận thất bại."
+            }
+        }
+    }
 
 
     // ===========================================================

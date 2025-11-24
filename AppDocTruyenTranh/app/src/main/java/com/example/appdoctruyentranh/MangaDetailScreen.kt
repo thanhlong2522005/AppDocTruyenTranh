@@ -3,6 +3,7 @@ package com.example.appdoctruyentranh
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -28,6 +30,10 @@ import com.example.appdoctruyentranh.model.Chapter
 import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.MangaDetailViewModel
+import com.google.firebase.auth.FirebaseAuth // Cần import FirebaseAuth
+
+// Import Comment model
+import com.example.appdoctruyentranh.model.Comment
 
 val TextPrimary = Color(0xFF212121)
 val TextSecondary = Color(0xFF757575)
@@ -43,7 +49,7 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    LaunchedEffect(mangaId) { 
+    LaunchedEffect(mangaId) {
         viewModel.loadMangaDetail(mangaId)
         authViewModel.checkAdminStatus()
     }
@@ -56,15 +62,16 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserMangaDetailScreen(
-    navController: NavHostController, 
-    mangaDetail: Story?, 
-    isLoading: Boolean, 
-    error: String?, 
+    navController: NavHostController,
+    mangaDetail: Story?,
+    isLoading: Boolean,
+    error: String?,
     viewModel: MangaDetailViewModel,
     isAdmin: Boolean
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Thông tin", "Chương")
+    // Cập nhật: Thêm "Bình luận" vào danh sách tabs
+    val tabs = listOf("Thông tin", "Chương", "Bình luận")
 
     Scaffold(
         topBar = {
@@ -102,6 +109,8 @@ fun UserMangaDetailScreen(
                         when (selectedTabIndex) {
                             0 -> InfoTabContent(detail = detail)
                             1 -> ChapterTabContent(mangaId = detail.id, chapters = detail.chapters, navController = navController)
+                            // Cập nhật: Thêm nhánh 2 cho nội dung tab Bình luận
+                            2 -> CommentTabContent(mangaId = detail.id, viewModel = viewModel)
                         }
                     }
                 }
@@ -243,6 +252,131 @@ fun ChapterItem(chapter: Chapter, onClick: () -> Unit) {
         Text(text = chapter.uploadDate, fontSize = 12.sp, color = TextSecondary)
     }
 }
+
+// =========================================================
+// ⭐️ START: COMMENT COMPOSE FUNCTIONS
+// =========================================================
+
+@Composable
+fun CommentTabContent(mangaId: String, viewModel: MangaDetailViewModel) {
+    val comments by viewModel.comments.collectAsState()
+    val isLoading by viewModel.isCommentLoading.collectAsState()
+    val commentError by viewModel.commentError.collectAsState()
+
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+
+    var newCommentContent by remember { mutableStateOf("") }
+
+    // Tải Comments khi tab được hiển thị
+    LaunchedEffect(mangaId) {
+        // Chỉ tải nếu chưa có data hoặc có lỗi trước đó để tránh tải lại vô ích khi switch tab
+        if (comments.isEmpty() && commentError == null) {
+            viewModel.loadComments(mangaId)
+        }
+    }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+
+        // 1. Ô Gửi bình luận
+        if (currentUser != null) {
+            Row(verticalAlignment = Alignment.Top) {
+                OutlinedTextField(
+                    value = newCommentContent,
+                    onValueChange = { newCommentContent = it },
+                    label = { Text("Viết bình luận của bạn...") },
+                    modifier = Modifier.weight(1f),
+                    minLines = 2,
+                    maxLines = 4
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(
+                    onClick = {
+                        if (newCommentContent.isNotBlank()) {
+                            viewModel.postComment(mangaId, newCommentContent, currentUser)
+                            newCommentContent = "" // Xóa nội dung input
+                        }
+                    },
+                    enabled = newCommentContent.isNotBlank() && !isLoading, // Vô hiệu hóa khi đang tải
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = "Gửi", tint = PrimaryColor)
+                }
+            }
+            if (commentError != null) {
+                Text(commentError!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+            Spacer(Modifier.height(16.dp))
+        } else {
+            Text(
+                "Vui lòng đăng nhập để bình luận",
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
+        // 2. Danh sách Bình luận
+        Text("Bình luận (${comments.size})", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
+        Divider(color = Color.LightGray)
+
+        when {
+            isLoading -> Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator(color = PrimaryColor) }
+            comments.isEmpty() && commentError == null -> Text("Chưa có bình luận nào.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
+            else -> LazyColumn(modifier = Modifier.heightIn(max = 600.dp)) { // Giới hạn chiều cao cho LazyColumn lồng nhau
+                items(comments) { comment ->
+                    CommentItem(comment = comment)
+                    Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommentItem(comment: Comment) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.Top) {
+        // Avatar
+        Box(modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(PrimaryColor),
+            contentAlignment = Alignment.Center
+        ) {
+            // Hiển thị ảnh đại diện thực tế (nếu có)
+            if (comment.userAvatarUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = comment.userAvatarUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Icon mặc định nếu không có ảnh đại diện
+                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+            }
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        Column {
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(comment.userName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextPrimary)
+                // TODO: Format thời gian thực
+                Text(
+                    text = "Vừa xong",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(comment.content, fontSize = 15.sp, color = TextPrimary.copy(alpha = 0.9f))
+        }
+    }
+}
+
+// =========================================================
+// ⭐️ END: COMMENT COMPOSE FUNCTIONS
+// =========================================================
 
 @Preview(showBackground = true)
 @Composable

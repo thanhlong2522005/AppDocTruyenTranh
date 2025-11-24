@@ -15,7 +15,8 @@ data class Story(
     val genres: List<String> = emptyList(),
     val description: String = "",
     val chapters: List<Chapter> = emptyList(),
-
+    @PropertyName("lastChapterNumber")
+    val lastChapterNumber: Int = 0,
     var isLiked: Boolean = false
 
 ) {

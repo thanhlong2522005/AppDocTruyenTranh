@@ -5,11 +5,51 @@ import com.example.appdoctruyentranh.model.*
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
-import androidx.compose.runtime.mutableStateListOf // Cần thiết nếu Chapter model dùng mutableStateListOf
+import androidx.compose.runtime.mutableStateListOf
 import com.google.firebase.firestore.FieldValue
+import java.util.Date // ⭐️ CẦN THIẾT cho Comment Data Class
+
+
 class MangaRepository {
 
     private val db = FirebaseFirestore.getInstance()
+    // ... (các hàm khác giữ nguyên)
+
+    // ===================== CHỨC NĂNG BÌNH LUẬN MỚI =====================
+
+    /**
+     * Tải danh sách 50 Comments mới nhất cho một Story.
+     */
+    suspend fun fetchComments(storyId: String): List<Comment> {
+        return try {
+            val snapshot = db.collection("stories").document(storyId)
+                .collection("comments") // ⭐️ Sub-collection comments
+                .orderBy("timestamp", Query.Direction.DESCENDING) // Mới nhất lên đầu
+                .limit(50)
+                .get().await()
+
+            snapshot.documents.mapNotNull { doc ->
+                // Ánh xạ Document sang Comment data class
+                doc.toObject(Comment::class.java)?.copy(id = doc.id)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    /**
+     * Gửi một Comment mới lên Firestore.
+     */
+    suspend fun postComment(storyId: String, comment: Comment) {
+        db.collection("stories").document(storyId)
+            .collection("comments")
+            .add(comment) // Firestore sẽ tự động tạo ID và ServerTimestamp
+            .await()
+    }
+
+    // ... (các hàm cũ từ đây)
+
     //  LƯU LỊCH SỬ ĐỌC
     suspend fun saveReadHistory(userId: String, storyId: String, chapterId: String) {
         val historyRef = db.collection("read_history")
@@ -301,4 +341,3 @@ class MangaRepository {
             .await() // Sử dụng await() nếu bạn dùng thư viện kotlinx-coroutines-play-services
     }
 }
-
