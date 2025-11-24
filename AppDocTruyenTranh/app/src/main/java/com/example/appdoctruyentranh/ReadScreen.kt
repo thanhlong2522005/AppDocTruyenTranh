@@ -1,3 +1,4 @@
+// File: ReadScreen.kt (Đã sửa)
 @file:OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalAnimationApi::class,
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,8 +39,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.appdoctruyentranh.viewmodel.ChapterReaderViewModel
+import com.example.appdoctruyentranh.viewmodel.DownloadViewModel
 import com.example.appdoctruyentranh.viewmodel.ReadingFont
 import com.example.appdoctruyentranh.viewmodel.ReadingMode
+import com.example.appdoctruyentranh.viewmodel.SettingsViewModel // ⭐ Thêm import này
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.PagerState
@@ -59,29 +63,44 @@ fun ReadScreen(
     navController: NavHostController,
     mangaId: String,        // String từ Story.id
     chapterId: String,      // String từ route → parse thành Int
-    viewModel: ChapterReaderViewModel = viewModel()
+    viewModel: ChapterReaderViewModel = viewModel(),
+    downloadViewModel: DownloadViewModel = viewModel(
+        factory = DownloadViewModel.Factory(LocalContext.current)
+    ),
+    // ⭐ THÊM SETTINGS VIEWMODEL
+    settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModel.Factory(LocalContext.current)
+    )
 ) {
     val chapterIdInt = remember(chapterId) { chapterId.toIntOrNull() ?: 1 }
 
     val isMenuVisible by viewModel.isMenuVisible.collectAsState()
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
+
+    // ⭐ LẤY TRẠNG THÁI DARK MODE TỪ CÀI ĐẶT CHUNG (PERSISTENT)
+    val settingsState by settingsViewModel.uiState.collectAsState()
+    val isDarkMode by remember {
+        derivedStateOf { settingsState.isDarkMode }
+    }
+
     val currentFont by viewModel.currentFont.collectAsState()
     val readingMode by viewModel.readingMode.collectAsState()
     val displayFontFamily = getCustomFontFamily(currentFont)
 
     val chapterData by viewModel.chapterData.collectAsState()
     val story by viewModel.currentStory.collectAsState()
+    val currentChapterData by viewModel.currentChapter.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.errorMessage.collectAsState()
 
     val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
 
     var showReportDialog by remember { mutableStateOf(false) }
-    var showCommentDialog by remember { mutableStateOf(false) }
+    // ⭐ XÓA TRẠNG THÁI COMMENT: var showCommentDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     val listState = rememberLazyListState()
     val pagerState = rememberPagerState()
-    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(mangaId, chapterIdInt) {
         viewModel.loadChapter(mangaId, chapterIdInt)
@@ -125,20 +144,42 @@ fun ReadScreen(
     val currentChapter = story?.chapters?.find { it.number == chapterIdInt }
     val chapterTitle = currentChapter?.title?.takeIf { it.isNotBlank() } ?: "Chương $chapterIdInt"
 
-// SỬA TỪ ĐÂY: dùng lastChapterNumber thay vì chapters.size
     val totalChapters = when {
         (story?.lastChapterNumber ?: 0) > 0 -> story!!.lastChapterNumber
         (story?.totalChapters ?: 0) > 0 -> story!!.totalChapters
-        else -> 999 // fallback cực lớn để chắc chắn không bị chặn
+        else -> 999
     }
 
     val hasPrev = chapterIdInt > 1
     val hasNext = chapterIdInt < totalChapters
 
+    val onDownloadAction: () -> Unit = {
+        if (story != null && currentChapterData != null) {
+            downloadViewModel.startDownload(
+                storyId = story!!.id,
+                storyTitle = story!!.title,
+                chapter = currentChapterData!!
+            )
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    "Đã thêm ${story!!.title} - ${currentChapterData!!.title} vào danh sách tải xuống!",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
+    // ⭐ CẬP NHẬT onToggleDarkMode để gọi SettingsViewModel
+    val onToggleDarkModeAction: () -> Unit = {
+        settingsViewModel.setDarkMode(!isDarkMode)
+    }
+
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .background(bgColor)
+            .background(bgColor),
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -169,7 +210,8 @@ fun ReadScreen(
                 isVisible = isMenuVisible,
                 title = "${story?.title ?: "Truyện"} - $chapterTitle",
                 onBack = { navController.popBackStack() },
-                onSettingClick = { navController.navigate("settings") }
+                onSettingClick = { navController.navigate("settings") },
+                onDownloadClick = onDownloadAction
             )
 
             MenuBottomBar(
@@ -194,9 +236,9 @@ fun ReadScreen(
                         }
                     }
                 },
-                onToggleDarkMode = { viewModel.toggleDarkMode() },
+                onToggleDarkMode = onToggleDarkModeAction, // ⭐ Gán hành động đã sửa
                 onReportClick = { showReportDialog = true },
-                onCommentClick = { showCommentDialog = true },
+                // ⭐ XÓA HÀM onCommentClick: onCommentClick = { showCommentDialog = true },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
@@ -210,13 +252,14 @@ fun ReadScreen(
         )
     }
 
-    if (showCommentDialog) {
+    // ⭐ XÓA COMMENT DIALOG:
+    /* if (showCommentDialog) {
         SimpleAlertDialog(
             title = "Bình luận",
             message = "Tính năng bình luận đang phát triển.",
             onDismiss = { showCommentDialog = false }
         )
-    }
+    } */
 }
 
 @Composable
@@ -303,7 +346,8 @@ fun MenuTopBar(
     isVisible: Boolean,
     title: String,
     onBack: () -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    onDownloadClick: () -> Unit
 ) {
     AnimatedVisibility(
         visible = isVisible,
@@ -329,7 +373,7 @@ fun MenuTopBar(
                 IconButton(onClick = onSettingClick) {
                     Icon(Icons.Default.Settings, "Cài đặt", tint = Color.White)
                 }
-                IconButton(onClick = { /* Download */ }) {
+                IconButton(onClick = onDownloadClick) {
                     Icon(Icons.Default.Download, "Tải xuống", tint = Color.White)
                 }
             },
@@ -351,7 +395,7 @@ fun MenuBottomBar(
     onNextClick: () -> Unit,
     onToggleDarkMode: () -> Unit,
     onReportClick: () -> Unit,
-    onCommentClick: () -> Unit,
+    // ⭐ XÓA onCommentClick khỏi danh sách tham số
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -394,9 +438,10 @@ fun MenuBottomBar(
                 IconButton(onClick = onReportClick) {
                     Icon(Icons.Default.Report, "Báo cáo", tint = Color.White)
                 }
-                IconButton(onClick = onCommentClick) {
+                // ⭐ XÓA ICON COMMENT KHỎI UI
+                /* IconButton(onClick = onCommentClick) {
                     Icon(Icons.Default.Comment, "Bình luận", tint = Color.White)
-                }
+                } */
                 IconButton(onClick = onNextClick, enabled = hasNext) {
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Chương sau", tint = if (hasNext) Color.White else Color.White.copy(0.5f))
                 }

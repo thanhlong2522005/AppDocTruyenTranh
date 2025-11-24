@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    // THÊM: Plugin kotlin-kapt là bắt buộc để xử lý Room annotations
+    id("kotlin-kapt")
 }
 
 android {
@@ -86,6 +88,13 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
+    // START: Dependencies cho Room Database (ĐÃ THÊM THEO YÊU CẦU)
+    // 1. KTX và Compiler cho Room
+    implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
+    // 2. Room cho Coroutines Flow và KTX
+    implementation("androidx.room:room-ktx:2.6.1")
+    // END: Dependencies cho Room Database
 
 }
