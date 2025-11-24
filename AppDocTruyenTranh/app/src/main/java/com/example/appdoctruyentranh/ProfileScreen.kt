@@ -78,7 +78,8 @@ fun ProfileScreen(navController: NavHostController) {
             item { Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 8.dp) }
             item { ProfileMenuItem(icon = Icons.Default.Settings, title = "Cài đặt ứng dụng", onClick = { navController.navigate("settings") }) }
             item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { ProfileMenuItem(icon = Icons.Default.Info, title = "Giới thiệu & Hỗ trợ", onClick = { /*TODO*/ }) }
+            // ⭐ KÍCH HOẠT ĐIỀU HƯỚNG TỚI MÀN HÌNH MỚI
+            item { ProfileMenuItem(icon = Icons.Default.Info, title = "Giới thiệu & Hỗ trợ", onClick = { navController.navigate("about_support") }) }
             item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
 
             // Mục dành riêng cho Admin

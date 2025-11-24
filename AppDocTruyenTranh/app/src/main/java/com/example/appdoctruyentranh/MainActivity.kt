@@ -141,6 +141,12 @@ fun AppNavigation() {
             ManageStoriesScreen(navController = navController)
         }
 
+        // ⭐ THÊM MÀN HÌNH GIỚI THIỆU
+        composable("about_support") {
+            AboutSupportScreen(navController = navController)
+        }
+
+
         composable(
             route = "admin_upload?mangaId={mangaId}",
             arguments = listOf(navArgument("mangaId") { nullable = true; defaultValue = null })
