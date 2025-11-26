@@ -1,5 +1,6 @@
 package com.example.appdoctruyentranh
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,8 +27,9 @@ import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.UploadViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditStoryScreen(navController: NavHostController, mangaId: String) {
     val authViewModel: AuthViewModel = viewModel()
@@ -51,7 +53,9 @@ fun EditStoryScreen(navController: NavHostController, mangaId: String) {
             }
         ) { padding ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -187,7 +191,9 @@ fun EditStoryScreen(navController: NavHostController, mangaId: String) {
                         readOnly = true,
                         label = { Text("Trạng thái") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         listOf("Đang ra", "Hoàn thành", "Tạm drop").forEach { option ->

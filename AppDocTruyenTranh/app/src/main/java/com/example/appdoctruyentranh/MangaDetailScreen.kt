@@ -31,6 +31,7 @@ import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.MangaDetailViewModel
 import com.google.firebase.auth.FirebaseAuth // Cần import FirebaseAuth
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 // Import Comment model
 import com.example.appdoctruyentranh.model.Comment
@@ -59,7 +60,7 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun UserMangaDetailScreen(
     navController: NavHostController,
@@ -119,6 +120,7 @@ fun UserMangaDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun DetailSummarySection(
     detail: Story,

@@ -1,6 +1,7 @@
 // File: SearchScreen.kt
 package com.example.appdoctruyentranh
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -30,6 +31,7 @@ import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.model.StoryItem
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.SearchViewModel
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 @Composable
 fun SearchScreen(navController: NavHostController) {
@@ -191,6 +193,7 @@ fun GenreFilter(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecentSearches(
     recentQueries: List<String>,

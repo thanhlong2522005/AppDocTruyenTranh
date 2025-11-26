@@ -1,5 +1,6 @@
 package com.example.appdoctruyentranh
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.UploadViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +53,9 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
             }
         ) { padding ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -367,7 +371,7 @@ fun AdminUploadScreen(navController: NavHostController, preselectedMangaId: Stri
 }
 
 // === Form Thêm/Sửa Truyện ===
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun UploadStoryForm(
     title: String, onTitleChange: (String) -> Unit,
@@ -385,7 +389,9 @@ fun UploadStoryForm(
     onSubmit: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
         elevation = CardDefaults.cardElevation(8.dp)
     ) {
@@ -403,7 +409,9 @@ fun UploadStoryForm(
                     value = status, onValueChange = {}, readOnly = true,
                     label = { Text("Trạng thái") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     listOf("Đang ra", "Hoàn thành", "Tạm drop").forEach {
@@ -498,7 +506,9 @@ fun UploadChapterForm(
                 readOnly = true,
                 label = { Text("Chọn truyện *") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showDropdown) },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
             )
             ExposedDropdownMenu(expanded = showDropdown, onDismissRequest = { onDropdownToggle(false) }) {
                 stories.forEach { story ->
