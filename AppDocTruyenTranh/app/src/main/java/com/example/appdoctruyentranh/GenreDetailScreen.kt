@@ -167,39 +167,6 @@ fun GenreDetailScreen(
                                         )
                                         Spacer(Modifier.height(8.dp))
 
-                                        // === GENRES - CHIP ===
-                                       /* if (story.genres.isNotEmpty()) {
-                                            FlowRow(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                modifier = Modifier.padding(vertical = 4.dp)
-                                            ) {
-                                                story.genres.forEach { genre ->
-                                                    AssistChip(
-                                                        onClick = { },
-                                                        label = {
-                                                            Text(
-                                                                text = genre,
-                                                                fontSize = 12.sp,
-                                                                color = PrimaryColor // Giữ màu chữ là PrimaryColor
-                                                            )
-                                                        },
-                                                        colors = AssistChipDefaults.assistChipColors(
-                                                            // Đặt màu nền containerColor thành Color.Transparent để loại bỏ nền
-                                                            containerColor = Color.Transparent,
-                                                            labelColor = PrimaryColor
-                                                        ),
-                                                        // Bỏ thuộc tính 'border' để loại bỏ viền
-                                                        // border = BorderStroke(1.dp, PrimaryColor) // Dòng này đã bị loại bỏ
-                                                    )
-
-                                                }
-                                            }
-                                            Spacer(Modifier.height(8.dp))
-
-                                        }
-
-                                        */
-
                                         // Số chapter
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(

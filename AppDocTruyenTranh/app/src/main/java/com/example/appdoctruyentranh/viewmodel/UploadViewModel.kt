@@ -25,7 +25,7 @@ class UploadViewModel : ViewModel() {
     private val displayCollections = mapOf(
         "banners" to db.collection("banners"),
         "completed_stories" to db.collection("completed_stories"),
-        "favorites" to db.collection("favorites"),
+        "favorites_list" to db.collection("favorites_list"),
         "most_viewed" to db.collection("most_viewed"),
         "new_releases" to db.collection("new_releases"),
         "new_updates" to db.collection("new_updates"),

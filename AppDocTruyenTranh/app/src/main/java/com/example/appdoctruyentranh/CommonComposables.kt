@@ -130,17 +130,7 @@ fun AppHeader(
     navigationIcon: @Composable (() -> Unit)? = null
 ) {
     // Định nghĩa Icon Menu mặc định
-    val defaultNavigationIcon: @Composable (() -> Unit) = {
-        Icon(
-            imageVector = Icons.Default.Menu,
-            contentDescription = "Menu",
-            tint = Color.White,
-            modifier = Modifier
-                .size(56.dp) // Kích thước bằng chiều cao của Header
-                .padding(16.dp)
-                .clickable { /* Mở Drawer Navigation */ }
-        )
-    }
+
 
     Row(
         modifier = Modifier
@@ -151,9 +141,6 @@ fun AppHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // 1. Icon Điều hướng (Nếu navigationIcon không được cung cấp, dùng Icon Menu mặc định)
-        (navigationIcon ?: defaultNavigationIcon).invoke()
-
 
         // 2. Logo/Tên Ứng dụng
         Row(

@@ -1,5 +1,6 @@
 package com.example.appdoctruyentranh
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,6 +34,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.appdoctruyentranh.model.Chapter
 import androidx.lifecycle.viewmodel.compose.viewModel // ⭐️ Cần import này
+import coil.compose.rememberAsyncImagePainter
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.HistoryViewModel
 
@@ -139,23 +143,22 @@ fun HistoryStoryItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Card(
-            modifier = Modifier.size(70.dp).clickable(onClick = onStoryClick),
+            modifier = Modifier
+                .size(70.dp)
+                .clickable(onClick = onStoryClick),
             shape = RoundedCornerShape(4.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MenuBook,
-                    contentDescription = "Cover",
-                    tint = PrimaryColor.copy(alpha = 0.5f),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            Image(
+                painter = rememberAsyncImagePainter(
+                    model = item.story.imageUrl,
+                    placeholder = painterResource(android.R.drawable.ic_menu_gallery)
+                ),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         }
+
 
         Spacer(modifier = Modifier.width(12.dp))
 
