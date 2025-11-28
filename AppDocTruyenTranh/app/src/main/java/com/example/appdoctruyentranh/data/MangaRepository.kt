@@ -6,9 +6,25 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import androidx.compose.runtime.mutableStateListOf
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FieldPath
+import com.google.firebase.firestore.SetOptions
 import java.util.Date // ⭐️ CẦN THIẾT cho Comment Data Class
+import kotlin.io.path.exists
 
+
+private data class UserProfile(
+    val name: String = "",
+    val imageUrl: String = ""
+)
+
+data class UserProfileData(
+    val name: String = "",
+    val email: String = "",
+    val imageUrl: String = "",
+    val gender: String = ""
+)
 
 class MangaRepository {
 
@@ -22,21 +38,53 @@ class MangaRepository {
      */
     suspend fun fetchComments(storyId: String): List<Comment> {
         return try {
-            val snapshot = db.collection("stories").document(storyId)
-                .collection("comments") // ⭐️ Sub-collection comments
-                .orderBy("timestamp", Query.Direction.DESCENDING) // Mới nhất lên đầu
+            // Bước 1: Lấy danh sách các document bình luận
+            val commentsSnapshot = db.collection("stories").document(storyId)
+                .collection("comments")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
                 .limit(50)
                 .get().await()
 
-            snapshot.documents.mapNotNull { doc ->
-                // Ánh xạ Document sang Comment data class
+            val comments = commentsSnapshot.documents.mapNotNull { doc ->
                 doc.toObject(Comment::class.java)?.copy(id = doc.id)
             }
+
+            if (comments.isEmpty()) {
+                return emptyList() // Không có bình luận thì trả về luôn
+            }
+
+            // Bước 2: Thu thập tất cả các userId duy nhất từ danh sách bình luận
+            val userIds = comments.map { it.userId }.distinct().filter { it.isNotEmpty() }
+
+            if (userIds.isEmpty()) {
+                return comments // Trả về bình luận mà không có thông tin user nếu không có userId nào
+            }
+
+            // Bước 3: Lấy thông tin của tất cả user chỉ với một truy vấn "whereIn"
+            // Giả định bạn có collection "users" với document ID là UID của người dùng
+            val usersSnapshot = db.collection("users").whereIn(FieldPath.documentId(), userIds).get().await()
+
+            // Tạo một map để tra cứu nhanh thông tin user từ userId: Map<String, UserProfile>
+            val userProfilesMap = usersSnapshot.documents.associate { doc ->
+                doc.id to (doc.toObject(UserProfile::class.java) ?: UserProfile())
+            }
+
+            // Bước 4: Ghép thông tin người dùng vào mỗi bình luận
+            comments.forEach { comment ->
+                val profile = userProfilesMap[comment.userId]
+                comment.userInfo = UserInfo(
+                    name = profile?.name ?: "Người dùng ẩn danh",
+                    avatarUrl = profile?.imageUrl ?: ""
+                )
+            }
+
+            comments
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
         }
     }
+
 
     /**
      * Gửi một Comment mới lên Firestore.
@@ -49,6 +97,46 @@ class MangaRepository {
     }
 
     // ... (các hàm cũ từ đây)
+
+    suspend fun createUserInFirestore(user: FirebaseUser, name: String) {
+        // 1. Lấy một avatar ngẫu nhiên từ collection "default_avatars"
+        val avatarsSnapshot = db.collection("default_avatars").get().await()
+        val defaultAvatarUrl = avatarsSnapshot.documents.randomOrNull()?.getString("imageUrl") ?: ""
+
+        // 2. Tạo đối tượng người dùng mới
+        val newUser = hashMapOf(
+            "name" to name, // Sử dụng tên người dùng nhập vào
+            "email" to user.email,
+            "imageUrl" to defaultAvatarUrl, // Gán avatar ngẫu nhiên
+            "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+        )
+
+        // 3. Lưu vào collection "users" với ID là UID của người dùng
+        db.collection("users").document(user.uid).set(newUser).await()
+    }
+
+    suspend fun getUserProfile(userId: String): UserProfileData? {
+        return try {
+            val document = db.collection("users").document(userId).get().await()
+            document.toObject(UserProfileData::class.java)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+
+    suspend fun deleteComment(storyId: String, commentId: String) {
+        try {
+            db.collection("stories").document(storyId)
+                .collection("comments").document(commentId)
+                .delete()
+                .await() // Dùng await để đảm bảo hoạt động bất đồng bộ hoàn tất
+        } catch (e: Exception) {
+            // Ném ra ngoại lệ để ViewModel có thể bắt và xử lý lỗi
+            throw Exception("Lỗi khi xóa bình luận trên Firestore: ${e.message}")
+        }
+    }
 
     //  LƯU LỊCH SỬ ĐỌC
     suspend fun saveReadHistory(userId: String, storyId: String, chapterId: String) {
@@ -325,12 +413,67 @@ class MangaRepository {
     }
 
     // ===================== Cập nhật rating (điểm sao) =====================
-    suspend fun updateRating(mangaId: String, newRating: Float) {
+    suspend fun updateRating(mangaId: String, userId: String, newRating: Float) {
+        require(newRating in 1f..5f) { "Rating phải từ 1 đến 5" }
+
         try {
             val storyRef = db.collection("stories").document(mangaId)
-            storyRef.update("rating", newRating).await()
+            val userRatingRef = storyRef.collection("ratings").document(userId)
+
+            db.runTransaction { transaction ->
+                val storySnap = transaction.get(storyRef)
+                if (!storySnap.exists()) {
+                    throw IllegalStateException("Truyện không tồn tại: $mangaId")
+                }
+
+                val userSnap = transaction.get(userRatingRef)
+
+                // Lấy giá trị hiện tại (phải dùng getLong/getDouble cẩn thận)
+                var currentTotal = storySnap.get("ratingTotal") as? Number
+                var currentCount = storySnap.get("ratingCount") as? Number
+
+                // Nếu chưa có field nào → khởi tạo = 0
+                if (currentTotal == null || currentCount == null) {
+                    currentTotal = 0.0
+                    currentCount = 0
+                }
+
+                val oldRating = if (userSnap.exists()) {
+                    userSnap.get("rating") as? Number
+                } else null
+
+                // Tính toán mới
+                val (newTotal, newCount) = if (oldRating == null) {
+                    // Người dùng chấm lần đầu
+                    currentTotal.toDouble() + newRating.toDouble() to currentCount.toLong() + 1
+                } else {
+                    // Người dùng sửa đánh giá
+                    currentTotal.toDouble() - oldRating.toDouble() + newRating.toDouble() to currentCount.toLong()
+                }
+
+                val newAverage = if (newCount > 0) newTotal / newCount else 0.0
+
+                // Cập nhật document Story
+                transaction.update(storyRef, mapOf(
+                    "ratingTotal" to newTotal,
+                    "ratingCount" to newCount.toLong(),
+                    "rating"      to String.format("%.2f", newAverage).toDouble() // giữ 2 chữ số thập phân
+                ))
+
+                // Lưu đánh giá riêng của user (dùng set với merge để tránh xóa field khác)
+                transaction.set(
+                    userRatingRef,
+                    mapOf(
+                        "rating"     to newRating,
+                        "timestamp"  to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge() // Quan trọng: chỉ cập nhật field này, không xóa field cũ
+                )
+            }.await()
+
         } catch (e: Exception) {
             e.printStackTrace()
+            throw e // Ném ra để ViewModel biết và xử lý lỗi
         }
     }
     suspend fun incrementViewCount(mangaId: String, currentViews: Int) {

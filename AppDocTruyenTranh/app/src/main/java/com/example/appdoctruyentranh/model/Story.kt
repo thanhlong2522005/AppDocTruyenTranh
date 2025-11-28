@@ -9,6 +9,8 @@ data class Story(
     val author: String = "",
     val status: String = "",
     var rating: Float = 0f,
+    var ratingTotal: Float = 0f,
+    var ratingCount: Int = 0,
     val imageUrl: String = "",
     var likes: Int = 0,
     var views: Int = 0,

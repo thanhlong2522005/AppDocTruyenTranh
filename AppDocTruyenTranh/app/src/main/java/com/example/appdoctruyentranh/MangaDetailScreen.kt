@@ -5,20 +5,27 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,34 +34,23 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.example.appdoctruyentranh.model.Chapter
+import com.example.appdoctruyentranh.model.Comment
 import com.example.appdoctruyentranh.model.Story
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.MangaDetailViewModel
-import com.google.firebase.auth.FirebaseAuth // Cần import FirebaseAuth
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import com.example.appdoctruyentranh.model.Comment
-
-// ⭐ THÊM IMPORT CẦN THIẾT CHO HÀM formatRelativeTime
-import java.util.Date
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
-import java.util.Locale
+import java.util.*
 
-val TextPrimary = Color(0xFF212121)
-val TextSecondary = Color(0xFF757575)
-
-// ⭐ HÀM CHUYỂN ĐỔI THỜI GIAN
 fun formatRelativeTime(date: Date?): String {
     if (date == null) return "Không rõ"
-
     val now = Date().time
     val diff = now - date.time
-
     val seconds = diff / 1000
     val minutes = seconds / 60
     val hours = minutes / 60
     val days = hours / 24
     val months = days / 30
-
     return when {
         seconds < 60 -> "Vừa xong"
         minutes < 60 -> "$minutes phút trước"
@@ -70,7 +66,6 @@ fun formatRelativeTime(date: Date?): String {
 fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
     val authViewModel: AuthViewModel = viewModel()
     val isAdmin by authViewModel.isAdmin.collectAsState()
-
     val viewModel: MangaDetailViewModel = viewModel(key = "manga_detail_$mangaId")
     val mangaDetail by viewModel.mangaDetail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -81,10 +76,8 @@ fun MangaDetailScreen(navController: NavHostController, mangaId: String) {
         authViewModel.checkAdminStatus()
     }
 
-    // LUÔN DÙNG GIAO DIỆN NGƯỜI DÙNG
     UserMangaDetailScreen(navController, mangaDetail, isLoading, error, viewModel, isAdmin)
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -97,8 +90,8 @@ fun UserMangaDetailScreen(
     isAdmin: Boolean
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    // Cập nhật: Thêm "Bình luận" vào danh sách tabs
     val tabs = listOf("Thông tin", "Chương", "Bình luận")
+    val colorScheme = MaterialTheme.colorScheme
 
     Scaffold(
         topBar = {
@@ -116,17 +109,20 @@ fun UserMangaDetailScreen(
     ) { paddingValues ->
         when {
             isLoading -> Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = PrimaryColor) }
-            error != null -> Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) { Text(text = error, color = Color.Red) }
+            error != null -> Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) { Text(text = error, color = colorScheme.error) }
             mangaDetail != null -> {
-                val detail = mangaDetail
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues)
+                    modifier = Modifier.fillMaxSize().padding(paddingValues).background(colorScheme.surface)
                 ) {
                     item {
-                        DetailSummarySection(detail, viewModel, isAdmin, navController)
+                        DetailSummarySection(detail = mangaDetail, viewModel = viewModel, isAdmin = isAdmin, navController = navController)
                     }
                     stickyHeader {
-                        TabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.White, contentColor = PrimaryColor) {
+                        TabRow(
+                            selectedTabIndex = selectedTabIndex,
+                            containerColor = colorScheme.surface,
+                            contentColor = PrimaryColor
+                        ) {
                             tabs.forEachIndexed { index, title ->
                                 Tab(selected = selectedTabIndex == index, onClick = { selectedTabIndex = index }, text = { Text(title, fontWeight = FontWeight.Bold) })
                             }
@@ -134,11 +130,9 @@ fun UserMangaDetailScreen(
                     }
                     item {
                         when (selectedTabIndex) {
-                            0 -> InfoTabContent(detail = detail)
-                            1 -> ChapterTabContent(mangaId = detail.id, chapters = detail.chapters, navController = navController)
-                            // Cập nhật: Thêm nhánh 2 cho nội dung tab Bình luận
-                            2 -> CommentTabContent(mangaId = detail.id, viewModel = viewModel)
-                        }
+                            0 -> InfoTabContent(detail = mangaDetail)
+                            1 -> ChapterTabContent(mangaId = mangaDetail.id, chapters = mangaDetail.chapters, navController = navController)
+                            2 -> CommentTabContent(mangaId = mangaDetail.id, viewModel = viewModel, navController = navController, isAdmin = isAdmin)                        }
                     }
                 }
             }
@@ -146,7 +140,7 @@ fun UserMangaDetailScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailSummarySection(
     detail: Story,
@@ -154,12 +148,10 @@ fun DetailSummarySection(
     isAdmin: Boolean,
     navController: NavHostController
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(modifier = Modifier.fillMaxWidth().background(colorScheme.surface).padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Card(
-                modifier = Modifier.size(110.dp, 160.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
+            Card(modifier = Modifier.size(110.dp, 160.dp), shape = RoundedCornerShape(8.dp)) {
                 AsyncImage(
                     model = detail.imageUrl,
                     contentDescription = detail.title,
@@ -171,11 +163,11 @@ fun DetailSummarySection(
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(detail.title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-                Text(detail.author, fontSize = 16.sp, color = TextSecondary)
+                Text(detail.title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = colorScheme.onSurface)
+                Text(detail.author, fontSize = 16.sp, color = colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    InfoStat(icon = if (detail.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, text = detail.likes.toString(), tint = if (detail.isLiked) Color.Red else TextSecondary, onClick = { viewModel.toggleLike() })
+                    InfoStat(icon = if (detail.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, text = detail.likes.toString(), tint = if (detail.isLiked) Color.Red else colorScheme.onSurfaceVariant, onClick = { viewModel.toggleLike() })
                     Spacer(modifier = Modifier.width(16.dp))
                     InfoStat(Icons.Default.Visibility, detail.views.toString())
                     Spacer(modifier = Modifier.width(16.dp))
@@ -183,10 +175,31 @@ fun DetailSummarySection(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RatingBar(rating = detail.rating, onRatingChanged = { rating -> viewModel.updateRating(rating) })
+                    RatingBar(
+                        rating = detail.rating,
+                        onRatingChanged = { newRating ->
+                            viewModel.updateRating(newRating)
+                        }
+                    )
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(detail.rating.toString(), color = TextSecondary)
+
+                    Text(
+                        text = "${String.format("%.1f", detail.rating)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colorScheme.onSurface
+                    )
+
+                    if (detail.ratingCount > 0) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "(${detail.ratingCount} lượt)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -211,7 +224,7 @@ fun DetailSummarySection(
         Spacer(modifier = Modifier.height(16.dp))
         FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             detail.genres.forEach { genre ->
-                AssistChip(onClick = { /* Navigate to genre */ }, label = { Text(genre, fontSize = 14.sp) }, colors = AssistChipDefaults.assistChipColors(containerColor = Color.White, labelColor = TextPrimary), border = BorderStroke(1.dp, TextSecondary.copy(alpha = 0.5f)))
+                AssistChip(onClick = { /* Navigate to genre */ }, label = { Text(genre, fontSize = 14.sp) })
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -234,11 +247,11 @@ fun DetailSummarySection(
 }
 
 @Composable
-fun InfoStat(icon: ImageVector, text: String, tint: Color = TextSecondary, onClick: (() -> Unit)? = null) {
+fun InfoStat(icon: ImageVector, text: String, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, onClick: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(enabled = onClick != null) { onClick?.invoke() }) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(4.dp))
-        Text(text, fontSize = 14.sp, color = TextSecondary)
+        Text(text, fontSize = 14.sp, color = tint)
     }
 }
 
@@ -247,19 +260,20 @@ fun RatingBar(rating: Float, onRatingChanged: (Float) -> Unit) {
     var currentRating by remember { mutableFloatStateOf(rating) }
     Row {
         for (i in 1..5) {
-            Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = if (i <= currentRating) Color.Yellow else Color.LightGray, modifier = Modifier.size(20.dp).clickable { currentRating = i.toFloat(); onRatingChanged(i.toFloat()) })
+            Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = if (i <= currentRating) Color(0xFFFFC107) else MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(20.dp).clickable { currentRating = i.toFloat(); onRatingChanged(i.toFloat()) })
         }
     }
 }
 
 @Composable
 fun InfoTabContent(detail: Story) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Trạng thái", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text(detail.status, fontSize = 14.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 16.dp))
-        Text("Giới thiệu", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("Trạng thái", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+        Text(detail.status, fontSize = 14.sp, color = colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 16.dp))
+        Text("Giới thiệu", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = detail.description, fontSize = 14.sp, color = TextPrimary.copy(alpha = 0.8f), lineHeight = 20.sp)
+        Text(text = detail.description, fontSize = 14.sp, color = colorScheme.onSurface.copy(alpha = 0.8f), lineHeight = 20.sp)
     }
 }
 
@@ -268,45 +282,42 @@ fun ChapterTabContent(mangaId: String, chapters: List<Chapter>, navController: N
     LazyColumn(modifier = Modifier.height(500.dp)) {
         items(chapters) { chapter ->
             ChapterItem(chapter = chapter) { navController.navigate("read/$mangaId/${chapter.id}") }
-            Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
+            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
         }
     }
 }
 
 @Composable
 fun ChapterItem(chapter: Chapter, onClick: () -> Unit) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text = "Chương ${chapter.number}: ${chapter.title}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(text = chapter.uploadDate, fontSize = 12.sp, color = TextSecondary)
+        Text(text = "Chương ${chapter.number}: ${chapter.title}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = colorScheme.onSurface)
+        Text(text = chapter.uploadDate, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
     }
 }
 
-// =========================================================
-// ⭐️ START: COMMENT COMPOSE FUNCTIONS
-// =========================================================
-
 @Composable
-fun CommentTabContent(mangaId: String, viewModel: MangaDetailViewModel) {
+fun CommentTabContent(
+    mangaId: String,
+    viewModel: MangaDetailViewModel,
+    navController: NavHostController,
+    isAdmin: Boolean
+) {
     val comments by viewModel.comments.collectAsState()
     val isLoading by viewModel.isCommentLoading.collectAsState()
     val commentError by viewModel.commentError.collectAsState()
-
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
-
     var newCommentContent by remember { mutableStateOf("") }
+    val colorScheme = MaterialTheme.colorScheme
 
-    // Tải Comments khi tab được hiển thị
     LaunchedEffect(mangaId) {
-        // Chỉ tải nếu chưa có data hoặc có lỗi trước đó để tránh tải lại vô ích khi switch tab
         if (comments.isEmpty() && commentError == null) {
             viewModel.loadComments(mangaId)
         }
     }
 
     Column(modifier = Modifier.padding(16.dp)) {
-
-        // 1. Ô Gửi bình luận
         if (currentUser != null) {
             Row(verticalAlignment = Alignment.Top) {
                 OutlinedTextField(
@@ -325,35 +336,61 @@ fun CommentTabContent(mangaId: String, viewModel: MangaDetailViewModel) {
                             newCommentContent = "" // Xóa nội dung input
                         }
                     },
-                    enabled = newCommentContent.isNotBlank() && !isLoading, // Vô hiệu hóa khi đang tải
+                    enabled = newCommentContent.isNotBlank() && !isLoading,
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(Icons.Default.Send, contentDescription = "Gửi", tint = PrimaryColor)
                 }
             }
             if (commentError != null) {
-                Text(commentError!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                Text(commentError!!, color = colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
             }
             Spacer(Modifier.height(16.dp))
         } else {
-            Text(
-                "Vui lòng đăng nhập để bình luận",
-                color = Color.Gray,
+            val annotatedString = buildAnnotatedString {
+                withStyle(style = SpanStyle(color = colorScheme.onSurfaceVariant)) {
+                    append("Vui lòng ")
+                }
+
+                pushStringAnnotation(tag = "LOGIN", annotation = "login")
+                withStyle(style = SpanStyle(color = PrimaryColor, fontWeight = FontWeight.Bold)) {
+                    append("đăng nhập")
+                }
+                pop()
+
+                withStyle(style = SpanStyle(color = colorScheme.onSurfaceVariant)) {
+                    append(" để bình luận")
+                }
+            }
+
+            ClickableText(
+                text = annotatedString,
+                onClick = {
+                    annotatedString.getStringAnnotations(tag = "LOGIN", start = it, end = it)
+                        .firstOrNull()?.let {
+                            navController.navigate("login")
+                        }
+                },
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         }
 
-        // 2. Danh sách Bình luận
-        Text("Bình luận (${comments.size})", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextPrimary, modifier = Modifier.padding(bottom = 8.dp))
-        Divider(color = Color.LightGray)
+        Text("Bình luận (${comments.size})", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface, modifier = Modifier.padding(bottom = 8.dp))
+        Divider(color = colorScheme.outline)
 
         when {
             isLoading -> Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator(color = PrimaryColor) }
-            comments.isEmpty() && commentError == null -> Text("Chưa có bình luận nào.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
+            comments.isEmpty() && commentError == null -> Text("Chưa có bình luận nào.", color = colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             else -> LazyColumn(modifier = Modifier.heightIn(max = 600.dp)) { // Giới hạn chiều cao cho LazyColumn lồng nhau
                 items(comments) { comment ->
-                    CommentItem(comment = comment)
-                    Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
+                    CommentItem(
+                        comment = comment,
+                        isAdmin = isAdmin,
+                        onDelete = {
+                            viewModel.deleteComment(mangaId, comment.id)
+                        }
+                    )
+                    Divider(color = colorScheme.outline.copy(alpha = 0.5f), thickness = 0.5.dp)
                 }
             }
         }
@@ -361,53 +398,84 @@ fun CommentTabContent(mangaId: String, viewModel: MangaDetailViewModel) {
 }
 
 @Composable
-fun CommentItem(comment: Comment) {
-    // ⭐ Lấy thời gian đã format
-    val timeAgo = formatRelativeTime(comment.timestamp) // Sử dụng hàm mới
+fun CommentItem(
+    comment: Comment,
+    isAdmin: Boolean,
+    onDelete: () -> Unit
+) {
+    val timeAgo = formatRelativeTime(comment.timestamp)
+    val colorScheme = MaterialTheme.colorScheme
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Xác nhận xóa") },
+            text = { Text("Bạn có chắc chắn muốn xóa bình luận này không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.error)
+                ) {
+                    Text("Xóa")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.Top) {
-        // Avatar
+        val avatarUrl = comment.userInfo?.avatarUrl ?: ""
+        val userName = comment.userInfo?.name ?: "Ẩn danh"
+
         Box(modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
             .background(PrimaryColor),
             contentAlignment = Alignment.Center
         ) {
-            // Hiển thị ảnh đại diện thực tế (nếu có)
-            if (comment.userAvatarUrl.isNotEmpty()) {
+            if (avatarUrl.isNotEmpty()) {
                 AsyncImage(
-                    model = comment.userAvatarUrl,
+                    model = avatarUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                // Icon mặc định nếu không có ảnh đại diện
                 Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
             }
         }
-
-        Spacer(Modifier.width(8.dp))
-
-        Column {
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(comment.userName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextPrimary)
-                // ⭐ SỬ DỤNG HÀM FORMAT THỜI GIAN
-                Text(
-                    text = timeAgo, // Thay thế "Vừa xong" bằng biến dynamic
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
+                Text(userName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colorScheme.onSurface)
+                Text(text = timeAgo, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(4.dp))
-            Text(comment.content, fontSize = 15.sp, color = TextPrimary.copy(alpha = 0.9f))
+            Text(comment.content, fontSize = 15.sp, color = colorScheme.onSurface.copy(alpha = 0.9f), lineHeight = 20.sp)
+        }
+        if (isAdmin) {
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    Icons.Default.DeleteOutline,
+                    contentDescription = "Xóa bình luận",
+                    tint = colorScheme.error.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 }
-
-// =========================================================
-// ⭐️ END: COMMENT COMPOSE FUNCTIONS
-// =========================================================
 
 @Preview(showBackground = true)
 @Composable

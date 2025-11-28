@@ -50,15 +50,10 @@ fun CustomTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(text = placeholder, color = Color.Gray) },
+        placeholder = { Text(text = placeholder) }, // Đã xóa màu cứng
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Gray,
-            unfocusedBorderColor = Color.LightGray,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        ),
-        shape = RoundedCornerShape(16.dp), // Bo tròn
+        // Đã xóa tham số `colors` để sử dụng màu từ MaterialTheme
+        shape = RoundedCornerShape(16.dp), 
         singleLine = true
     )
 }
@@ -79,25 +74,19 @@ fun CustomPasswordTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(text = placeholder, color = Color.Gray) },
+        placeholder = { Text(text = placeholder) }, // Đã xóa màu cứng
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Gray,
-            unfocusedBorderColor = Color.LightGray,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        ),
+        // Đã xóa tham số `colors` để sử dụng màu từ MaterialTheme
         shape = RoundedCornerShape(16.dp),
         singleLine = true,
-        // Ẩn/Hiện mật khẩu
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        // Icon Ẩn/Hiện
         trailingIcon = {
             val image = if (passwordVisible)
                 Icons.Filled.Visibility
             else Icons.Filled.VisibilityOff
 
             IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                // Đã xóa tint để icon tự nhận màu từ Theme
                 Icon(imageVector = image, contentDescription = "Toggle password visibility")
             }
         }
@@ -109,7 +98,6 @@ fun CustomPasswordTextField(
 // PHẦN HEADER/LOGO (Để dùng chung)
 // =========================================================================
 val PrimaryColor = Color(0xFF00BFFF) // Màu xanh MANGAGO
-val GrayIcon = Color.Gray // Biến này không cần thiết nữa nếu dùng colorScheme
 
 // Data class cho Bottom Navigation Item
 data class BottomNavItem(

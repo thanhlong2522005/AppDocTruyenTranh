@@ -1,14 +1,24 @@
 package com.example.appdoctruyentranh.model
 
 import com.google.firebase.firestore.ServerTimestamp
+import com.google.firebase.firestore.Exclude
 import java.util.Date
 
+
+data class UserInfo(
+    val name: String = "Ẩn danh",
+    val avatarUrl: String = ""
+)
+
+
 data class Comment(
-    val id: String = "",
+    var id: String = "",
     val userId: String = "",
-    val userName: String = "",
-    val userAvatarUrl: String = "",
     val content: String = "",
-    @ServerTimestamp // Annotation quan trọng để Firestore tự động thêm thời gian
-    val timestamp: Date? = null
+    @ServerTimestamp
+    val timestamp: Date? = null,
+
+
+    @get:Exclude
+    var userInfo: UserInfo? = null
 )

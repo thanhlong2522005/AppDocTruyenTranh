@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,15 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,7 +73,7 @@ fun LoginScreen(navController: NavController) {
                         .addOnCompleteListener { authTask ->
                             if (authTask.isSuccessful) {
                                 Toast.makeText(context, "Đăng nhập Google thành công!", Toast.LENGTH_SHORT).show()
-                                navController.navigate("home")
+                                navController.navigate("home") { popUpTo("login") { inclusive = true } }
                             } else {
                                 val exception = authTask.exception
                                 if (exception is FirebaseAuthUserCollisionException) {
@@ -111,7 +107,7 @@ fun LoginScreen(navController: NavController) {
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             Toast.makeText(context, "Đăng nhập Facebook thành công!", Toast.LENGTH_SHORT).show()
-                            navController.navigate("home")
+                            navController.navigate("home") { popUpTo("login") { inclusive = true } }
                         } else {
                             val exception = task.exception
                              if (exception is FirebaseAuthUserCollisionException) {
@@ -139,18 +135,14 @@ fun LoginScreen(navController: NavController) {
         }
     }
 
-
-    val gradientBrush = Brush.verticalGradient(
-        colors = listOf(Color(0xFFE1E0FF), Color(0xFFF8F8FF))
-    )
+    // Lấy màu từ Theme
+    val colorScheme = MaterialTheme.colorScheme
     val facebookButtonColor = Color(0xFF1877F2)
-    val loginButtonColor = Color(0xFFB0B0B0)
-    val lightTextColor = Color.Gray
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(colorScheme.surface) // Sửa màu nền chính
             .imePadding()
     ) {
         Column(
@@ -166,24 +158,25 @@ fun LoginScreen(navController: NavController) {
                 text = "Đăng Nhập",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = colorScheme.onSurface // Sửa màu chữ
             )
 
             Text(
                 text = "Sign in to start",
                 fontSize = 16.sp,
-                color = lightTextColor
+                color = colorScheme.onSurfaceVariant // Sửa màu chữ phụ
             )
 
             Spacer(modifier = Modifier.height(40.dp))
 
+            // Nút Google
             Button(
                 onClick = { googleSignInLauncher.launch(googleSignInClient.signInIntent) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(25.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
+                    containerColor = colorScheme.surfaceVariant, // Sửa màu nền nút
+                    contentColor = colorScheme.onSurfaceVariant // Sửa màu chữ nút
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
             ) {
@@ -200,12 +193,13 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Nút Facebook
             Button(
                 onClick = { facebookLoginLauncher.launch(listOf("email", "public_profile")) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(25.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = facebookButtonColor,
+                    containerColor = facebookButtonColor, // Giữ màu đặc trưng của FB
                     contentColor = Color.White
                 )
             ) {
@@ -224,11 +218,11 @@ fun LoginScreen(navController: NavController) {
 
             ClickableText(
                 text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(color = lightTextColor, fontSize = 14.sp)) {
+                    withStyle(style = SpanStyle(color = colorScheme.onSurfaceVariant, fontSize = 14.sp)) {
                         append("Haven't account? ")
                     }
                     withStyle(style = SpanStyle(
-                        color = facebookButtonColor,
+                        color = facebookButtonColor, // Giữ màu FB
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )) {
@@ -245,12 +239,13 @@ fun LoginScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(300.dp))
         }
 
+        // Form đăng nhập dưới đáy
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp))
-                .background(gradientBrush)
+                .background(colorScheme.surfaceVariant) // Sửa màu nền cong
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -259,7 +254,7 @@ fun LoginScreen(navController: NavController) {
                 value = email,
                 onValueChange = { email = it },
                 placeholder = "Nhập email hoặc số điện thoại",
-                keyboardType = KeyboardType.Email
+                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -276,13 +271,14 @@ fun LoginScreen(navController: NavController) {
             ) {
                 Text(
                     text = "Quên mật khẩu",
-                    color = lightTextColor,
+                    color = colorScheme.onSurfaceVariant, // Sửa màu chữ
                     fontSize = 12.sp
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Nút đăng nhập chính
             Button(
                 onClick = {
                     if (email.isNotEmpty() && password.isNotEmpty()) {
@@ -290,7 +286,7 @@ fun LoginScreen(navController: NavController) {
                             .addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
                                     Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
-                                    navController.navigate("home")
+                                    navController.navigate("home") { popUpTo("login") { inclusive = true } }
                                 } else {
                                     Toast.makeText(context, "Đăng nhập thất bại: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                                 }
@@ -299,17 +295,24 @@ fun LoginScreen(navController: NavController) {
                         Toast.makeText(context, "Vui lòng điền đầy đủ thông tin!", Toast.LENGTH_SHORT).show()
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                // Màu nút sẽ tự lấy từ PrimaryColor của Theme
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) {
                 Text(text = "Đăng Nhập", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
+
+        // Nút quay về
         IconButton(
             onClick = { navController.popBackStack() },
             modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 32.dp)
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay về")
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack, 
+                contentDescription = "Quay về",
+                tint = colorScheme.onSurface // Sửa màu icon
+            )
         }
     }
 }

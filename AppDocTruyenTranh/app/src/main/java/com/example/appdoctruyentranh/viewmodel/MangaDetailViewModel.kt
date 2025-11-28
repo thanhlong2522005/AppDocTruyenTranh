@@ -64,11 +64,10 @@ class MangaDetailViewModel : ViewModel() {
         if (content.isBlank()) return // Bỏ qua nếu nội dung rỗng
 
         viewModelScope.launch {
+            // Thay đổi ở đây: Chỉ cần tạo Comment với userId và content.
+            // Các thông tin khác như tên và ảnh sẽ được Repository xử lý khi TẢI bình luận.
             val newComment = Comment(
                 userId = user.uid,
-                // Lấy thông tin người dùng từ Firebase Auth
-                userName = user.displayName ?: "Ẩn danh",
-                userAvatarUrl = user.photoUrl?.toString() ?: "" ,
                 content = content.trim()
             )
             try {
@@ -76,10 +75,31 @@ class MangaDetailViewModel : ViewModel() {
                 repository.postComment(storyId, newComment)
 
                 // 2. Tải lại danh sách để UI hiển thị bình luận mới nhất
+                // Hàm loadComments giờ đây sẽ tự động lấy cả thông tin người dùng.
                 loadComments(storyId)
 
             } catch (e: Exception) {
-                _commentError.value = "Gửi bình luận thất bại."
+                _commentError.value = "Gửi bình luận thất bại: ${e.message}"
+            }
+        }
+    }
+
+    // ===========================================================
+// 🗑️ XÓA BÌNH LUẬN (CHO ADMIN)
+// ===========================================================
+    fun deleteComment(storyId: String, commentId: String) {
+        viewModelScope.launch {
+            try {
+                // 1. Gọi repository để xóa trên Firestore
+                repository.deleteComment(storyId, commentId)
+
+                // 2. Cập nhật lại UI bằng cách xóa bình luận khỏi StateFlow
+                val updatedComments = _comments.value.filterNot { it.id == commentId }
+                _comments.value = updatedComments
+
+            } catch (e: Exception) {
+                // Xử lý nếu có lỗi
+                _commentError.value = "Lỗi khi xóa bình luận: ${e.message}"
             }
         }
     }
@@ -157,16 +177,16 @@ class MangaDetailViewModel : ViewModel() {
     // ===========================================================
     fun updateRating(newRating: Float) {
         val current = _mangaDetail.value ?: return
+
+        // UI cập nhật ngay
         val updated = current.copy(rating = newRating)
         _mangaDetail.value = updated
 
-        // ✅ Tuỳ chọn: lưu điểm đánh giá lên Firestore
         viewModelScope.launch {
             try {
-                repository.updateRating(updated.id, newRating)
-            } catch (_: Exception) {
-                // Bỏ qua lỗi nếu cần
-            }
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                repository.updateRating(current.id, userId, newRating)
+            } catch (_: Exception) {}
         }
     }
     fun incrementViewCount() {

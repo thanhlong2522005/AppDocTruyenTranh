@@ -5,27 +5,24 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.ProfileViewModel
 import com.facebook.login.LoginManager
@@ -61,9 +58,11 @@ fun ProfileScreen(navController: NavHostController) {
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             item {
+                // SỬA: Truyền ProfileViewModel xuống ProfileHeader
                 ProfileHeader(navController = navController, isAdmin = isAdmin, currentUser = currentUser)
             }
 
+            // ... (Phần còn lại của file giữ nguyên)
             // Các mục chỉ dành cho người dùng thường đã đăng nhập
             if (currentUser != null && !isAdmin) {
                 item { Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
@@ -101,24 +100,28 @@ fun ProfileScreen(navController: NavHostController) {
 }
 
 @Composable
-fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUser: FirebaseUser?) {
-    val context = LocalContext.current
-    val profileViewModel: ProfileViewModel = viewModel()
+fun ProfileHeader(
+    navController: NavHostController,
+    isAdmin: Boolean,
+    currentUser: FirebaseUser?,
+    profileViewModel: ProfileViewModel = viewModel() // SỬA: Khởi tạo viewModel ở đây
+) {
+    // SỬA: Lấy dữ liệu từ ProfileViewModel thay vì tự tính toán
+    val userName by profileViewModel.userName.collectAsState()
+    val userEmail by profileViewModel.userEmail.collectAsState()
+    val userAvatarUrl by profileViewModel.userAvatarUrl.collectAsState()
     val gender by profileViewModel.gender.collectAsState()
 
-    val imageLoader = ImageLoader.Builder(context)
-        .components { add(SvgDecoder.Factory()) }
-        .build()
-
-    // Load profile chỉ khi có người dùng và không phải admin
-    if (currentUser != null && !isAdmin) {
-        LaunchedEffect(currentUser) {
+    // SỬA: Sử dụng LaunchedEffect để ViewModel tải dữ liệu khi có thay đổi
+    // Key là currentUser và navController.currentBackStackEntry để tải lại khi quay về từ màn hình EditProfile
+    LaunchedEffect(currentUser, navController.currentBackStackEntry) {
+        if (currentUser != null && !isAdmin) {
             profileViewModel.loadUserProfile()
         }
     }
 
     if (currentUser == null) {
-        // Giao diện cho khách (chưa đăng nhập)
+        // Giao diện cho khách (chưa đăng nhập) -> Giữ nguyên
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -140,10 +143,6 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
         }
     } else {
         // Giao diện cho người dùng đã đăng nhập (User hoặc Admin)
-        val userName = if (isAdmin) "Admin" else currentUser.displayName ?: "Tên Người Dùng"
-        val userEmail = currentUser.email ?: "user@example.com"
-        val userPhotoUrl = if (isAdmin) null else currentUser.photoUrl
-
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -152,10 +151,11 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
                 modifier = Modifier.size(70.dp).clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (userPhotoUrl != null) {
+                // SỬA: Sử dụng userAvatarUrl từ ViewModel
+                val avatarToShow = if (isAdmin) "" else userAvatarUrl
+                if (avatarToShow.isNotBlank()) {
                     AsyncImage(
-                        model = userPhotoUrl,
-                        imageLoader = imageLoader,
+                        model = avatarToShow,
                         contentDescription = "Avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -174,9 +174,13 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                // SỬA: Sử dụng userName và userEmail từ ViewModel
+                val nameToShow = if (isAdmin) "Admin" else userName
+                val emailToShow = if (isAdmin) "admin@app.com" else userEmail
+                Text(text = nameToShow, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+
                 if (!isAdmin) {
-                    Text(text = userEmail, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = emailToShow, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (gender.isNotBlank()) {
                         Text(text = "Giới tính: $gender", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
@@ -191,6 +195,7 @@ fun ProfileHeader(navController: NavHostController, isAdmin: Boolean, currentUse
         }
     }
 }
+
 
 @Composable
 fun ProfileMenuItem(

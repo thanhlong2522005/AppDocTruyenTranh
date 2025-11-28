@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,12 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,33 +38,34 @@ fun EditProfileScreen(navController: NavController) {
     val currentUser = auth.currentUser
     val firestore = FirebaseFirestore.getInstance()
 
-    var name by remember { mutableStateOf(currentUser?.displayName ?: "") }
+    var name by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("Chưa xác định") }
     var isLoading by remember { mutableStateOf(false) }
 
     val defaultAvatars = remember { mutableStateListOf<String>() }
-    var selectedAvatarUrl by remember { mutableStateOf(currentUser?.photoUrl?.toString() ?: "") }
+    // State để lưu trữ URL avatar hiện tại, sẽ được tải từ Firestore
+    var selectedAvatarUrl by remember { mutableStateOf("") }
 
-    val imageLoader = ImageLoader.Builder(context)
-        .components { add(SvgDecoder.Factory()) }
-        .build()
+    val coroutineScope = rememberCoroutineScope()
 
+    // Tải dữ liệu ban đầu từ Firestore
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
+            // Tải thông tin người dùng (name, gender, imageUrl) từ Firestore
             firestore.collection("users").document(currentUser.uid).get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
+                        name = document.getString("name") ?: ""
                         gender = document.getString("gender") ?: "Chưa xác định"
+                        selectedAvatarUrl = document.getString("imageUrl") ?: "" // Lấy avatar từ đây
                     }
                 }
-            
+
+            // Tải danh sách các avatar mặc định
             firestore.collection("default_avatars").get()
                 .addOnSuccessListener { result ->
                     val urls = result.documents.mapNotNull { it.getString("imageUrl") }
                     defaultAvatars.addAll(urls)
-                    if (selectedAvatarUrl.isBlank() && urls.isNotEmpty()) {
-                        selectedAvatarUrl = urls.first()
-                    }
                 }
         }
     }
@@ -80,25 +83,44 @@ fun EditProfileScreen(navController: NavController) {
                     if (isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     } else {
-                        TextButton(onClick = { 
+                        TextButton(onClick = {
+                            // --- SỬA LẠI LOGIC LƯU ---
                             if (currentUser == null) return@TextButton
+                            if (name.isBlank()) {
+                                Toast.makeText(context, "Tên không được để trống", Toast.LENGTH_SHORT).show()
+                                return@TextButton
+                            }
+
                             isLoading = true
+                            coroutineScope.launch {
+                                try {
+                                    val userDocRef = firestore.collection("users").document(currentUser.uid)
 
-                            val userDocRef = firestore.collection("users").document(currentUser.uid)
-                            val userData = hashMapOf("name" to name.trim(), "gender" to gender)
-                            userDocRef.set(userData)
+                                    // Tạo map dữ liệu để cập nhật
+                                    val userData = hashMapOf(
+                                        "name" to name.trim(),
+                                        "gender" to gender,
+                                        "imageUrl" to selectedAvatarUrl // << QUAN TRỌNG: Cập nhật cả imageUrl
+                                    )
 
-                            val profileBuilder = UserProfileChangeRequest.Builder()
-                                .setDisplayName(name.trim())
-                                .setPhotoUri(android.net.Uri.parse(selectedAvatarUrl))
+                                    // Dùng set với merge=true để chỉ cập nhật các trường có trong map,
+                                    // không xóa các trường khác như 'email' hay 'createdAt'
+                                    userDocRef.set(userData, SetOptions.merge()).await()
 
-                            currentUser.updateProfile(profileBuilder.build()).addOnCompleteListener { task ->
-                                isLoading = false
-                                if (task.isSuccessful) {
+                                    // Cập nhật Firebase Auth (tùy chọn nhưng nên làm để đồng bộ)
+                                    // val profileBuilder = UserProfileChangeRequest.Builder()
+                                    //     .setDisplayName(name.trim())
+                                    //     .setPhotoUri(android.net.Uri.parse(selectedAvatarUrl))
+                                    // currentUser.updateProfile(profileBuilder.build()).await()
+
+                                    // Hoàn tất
+                                    isLoading = false
                                     Toast.makeText(context, "Cập nhật thành công!", Toast.LENGTH_SHORT).show()
                                     navController.popBackStack()
-                                } else {
-                                    Toast.makeText(context, "Lỗi: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+
+                                } catch (e: Exception) {
+                                    isLoading = false
+                                    Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }) {
@@ -110,6 +132,7 @@ fun EditProfileScreen(navController: NavController) {
         }
     ) { paddingValues ->
         Column(
+            // ... Phần UI còn lại giữ nguyên ...
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -120,9 +143,10 @@ fun EditProfileScreen(navController: NavController) {
 
             AsyncImage(
                 model = selectedAvatarUrl,
-                imageLoader = imageLoader,
                 contentDescription = "Avatar",
-                modifier = Modifier.size(100.dp).clip(CircleShape),
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
 
@@ -130,7 +154,9 @@ fun EditProfileScreen(navController: NavController) {
             Text("Chọn ảnh đại diện", fontWeight = FontWeight.Medium)
 
             LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
@@ -138,7 +164,6 @@ fun EditProfileScreen(navController: NavController) {
                     val isSelected = selectedAvatarUrl == avatarUrl
                     AsyncImage(
                         model = avatarUrl,
-                        imageLoader = imageLoader,
                         contentDescription = "Default Avatar",
                         modifier = Modifier
                             .size(60.dp)
@@ -153,11 +178,11 @@ fun EditProfileScreen(navController: NavController) {
                     )
                 }
             }
-            
+
             Divider(modifier = Modifier.padding(vertical = 16.dp))
 
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Tên hiển thị") }, modifier = Modifier.fillMaxWidth())
-            
+
             Spacer(modifier = Modifier.height(8.dp))
 
             var expanded by remember { mutableStateOf(false) }
@@ -169,13 +194,15 @@ fun EditProfileScreen(navController: NavController) {
                     readOnly = true,
                     label = { Text("Giới tính") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     genderOptions.forEach { option ->
                         DropdownMenuItem(
                             text = { Text(option) },
-                            onClick = { 
+                            onClick = {
                                 gender = option
                                 expanded = false
                             }
