@@ -30,6 +30,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appdoctruyentranh.model.Story
@@ -120,6 +123,36 @@ data class Story(
     val latestChapter: String? = null
 )
 
+
+@Composable
+fun MangagoLogoText() {
+    Box {
+        // Text viền (lớp dưới)
+        Text(
+            text = "MANGAGO",
+            fontFamily = mangagoFontFamily,
+            fontSize = 28.sp, // Tăng kích thước
+            fontWeight = FontWeight.Bold,
+            color = Color.Black, // Màu viền
+            style = TextStyle(
+                drawStyle = Stroke(
+                    miter = 10f,
+                    width = 10f, // Tăng độ dày viền
+                    join = StrokeJoin.Round
+                )
+            )
+        )
+        // Text chính (lớp trên)
+        Text(
+            text = "MANGAGO",
+            fontFamily = mangagoFontFamily,
+            fontSize = 28.sp, // Tăng kích thước
+            fontWeight = FontWeight.Bold,
+            color = Color.White // Màu chữ
+        )
+    }
+}
+
 // =========================================================================
 // 1. AppHeader (Logo và Tên ứng dụng)
 // =========================================================================
@@ -162,13 +195,8 @@ fun AppHeader(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Tên Ứng dụng
-            Text(
-                text = "MANGAGO",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp
-            )
+            // Tên Ứng dụng - ĐÃ ĐƯỢC THAY THẾ
+            MangagoLogoText()
         }
 
         // 3. Placeholder cho không gian trống

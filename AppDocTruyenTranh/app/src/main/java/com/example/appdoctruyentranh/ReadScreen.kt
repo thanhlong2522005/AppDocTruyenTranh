@@ -278,12 +278,12 @@ fun VerticalReader(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
             ),
-        contentPadding = PaddingValues(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentPadding = PaddingValues(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(15.dp) // Thêm khoảng cách giữa các item
     ) {
         items(pages) { imageUrl ->
             MangaPageImage(imageUrl = imageUrl, isDarkMode = isDarkMode)
-            Spacer(Modifier.height(2.dp))
         }
         item {
             Text(
@@ -324,7 +324,7 @@ fun MangaPageImage(imageUrl: String, isDarkMode: Boolean) {
     Card(
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .heightIn(min = 400.dp, max = 900.dp),
+            .wrapContentHeight(),
         shape = RoundedCornerShape(4.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDarkMode) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
@@ -334,6 +334,7 @@ fun MangaPageImage(imageUrl: String, isDarkMode: Boolean) {
             model = imageUrl,
             contentDescription = "Trang truyện",
             modifier = Modifier
+                .fillMaxWidth()
                 .fillMaxSize()
                 .background(if (isDarkMode) Color.Black else Color.White),
             contentScale = ContentScale.Fit
