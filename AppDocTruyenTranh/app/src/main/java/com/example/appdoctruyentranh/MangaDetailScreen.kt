@@ -32,12 +32,38 @@ import com.example.appdoctruyentranh.viewmodel.AuthViewModel
 import com.example.appdoctruyentranh.viewmodel.MangaDetailViewModel
 import com.google.firebase.auth.FirebaseAuth // Cần import FirebaseAuth
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-
-// Import Comment model
 import com.example.appdoctruyentranh.model.Comment
+
+// ⭐ THÊM IMPORT CẦN THIẾT CHO HÀM formatRelativeTime
+import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 val TextPrimary = Color(0xFF212121)
 val TextSecondary = Color(0xFF757575)
+
+// ⭐ HÀM CHUYỂN ĐỔI THỜI GIAN
+fun formatRelativeTime(date: Date?): String {
+    if (date == null) return "Không rõ"
+
+    val now = Date().time
+    val diff = now - date.time
+
+    val seconds = diff / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    val days = hours / 24
+    val months = days / 30
+
+    return when {
+        seconds < 60 -> "Vừa xong"
+        minutes < 60 -> "$minutes phút trước"
+        hours < 24 -> "$hours giờ trước"
+        days < 30 -> "$days ngày trước"
+        months < 12 -> "$months tháng trước"
+        else -> SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -336,6 +362,9 @@ fun CommentTabContent(mangaId: String, viewModel: MangaDetailViewModel) {
 
 @Composable
 fun CommentItem(comment: Comment) {
+    // ⭐ Lấy thời gian đã format
+    val timeAgo = formatRelativeTime(comment.timestamp) // Sử dụng hàm mới
+
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.Top) {
         // Avatar
         Box(modifier = Modifier
@@ -363,9 +392,9 @@ fun CommentItem(comment: Comment) {
         Column {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(comment.userName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextPrimary)
-                // TODO: Format thời gian thực
+                // ⭐ SỬ DỤNG HÀM FORMAT THỜI GIAN
                 Text(
-                    text = "Vừa xong",
+                    text = timeAgo, // Thay thế "Vừa xong" bằng biến dynamic
                     fontSize = 12.sp,
                     color = Color.Gray
                 )

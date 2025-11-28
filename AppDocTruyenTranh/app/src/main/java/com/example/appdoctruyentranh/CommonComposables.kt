@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.appdoctruyentranh.R // Import cần thiết cho R.drawable.mangago_logo
 import com.example.appdoctruyentranh.model.Story
 
 @Composable
@@ -108,7 +109,7 @@ fun CustomPasswordTextField(
 // PHẦN HEADER/LOGO (Để dùng chung)
 // =========================================================================
 val PrimaryColor = Color(0xFF00BFFF) // Màu xanh MANGAGO
-val GrayIcon = Color.Gray
+val GrayIcon = Color.Gray // Biến này không cần thiết nữa nếu dùng colorScheme
 
 // Data class cho Bottom Navigation Item
 data class BottomNavItem(
@@ -204,13 +205,21 @@ fun AppHeader(
     }
 }
 // =========================================================================
-// 2. AppBottomNavigationBar
+// 2. AppBottomNavigationBar (ĐÃ SỬA ĐỂ HỖ TRỢ DARK MODE)
 // =========================================================================
 
 @Composable
 fun AppBottomNavigationBar(navController: NavHostController, isAdmin: Boolean) {
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry.value?.destination?.route
+
+    // Lấy màu từ Theme hiện tại
+    val colorScheme = MaterialTheme.colorScheme
+
+    // Định nghĩa màu cho các trạng thái:
+    val selectedColor = PrimaryColor // Màu khi chọn (không đổi, vẫn dùng màu xanh Primary)
+    // ⭐ Màu khi không chọn, lấy từ onSurfaceVariant (màu chữ/icon phụ) của Theme
+    val unselectedColor = colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
 
     val allItems = listOf(
         BottomNavItem("home", Icons.Default.Home, "Trang chủ"),
@@ -223,7 +232,8 @@ fun AppBottomNavigationBar(navController: NavHostController, isAdmin: Boolean) {
     val items = if (isAdmin) allItems.filter { it.route != "favorite" } else allItems
 
     NavigationBar(
-        containerColor = Color.White,
+        // ⭐ THAY THẾ MÀU NỀN CỨNG BẰNG MÀU SURFACE CỦA CHỦ ĐỀ
+        containerColor = colorScheme.surface,
         modifier = Modifier.height(60.dp),
         tonalElevation = 5.dp
     ) {
@@ -244,18 +254,27 @@ fun AppBottomNavigationBar(navController: NavHostController, isAdmin: Boolean) {
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.label,
-                        tint = if (isSelected) PrimaryColor else GrayIcon
+                        // ⭐ SỬ DỤNG MÀU CHỦ ĐỀ (PrimaryColor hoặc màu Theme)
+                        tint = if (isSelected) selectedColor else unselectedColor
                     )
                 },
                 label = {
                     Text(
                         item.label,
                         fontSize = 10.sp,
-                        color = if (isSelected) PrimaryColor else GrayIcon
+                        // ⭐ SỬ DỤNG MÀU CHỦ ĐỀ (PrimaryColor hoặc màu Theme)
+                        color = if (isSelected) selectedColor else unselectedColor
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    indicatorColor = Color.Transparent
+                    indicatorColor = Color.Transparent,
+                    // ⭐ Đảm bảo màu nền khi nhấn (Press/Selected) cũng dùng màu Theme
+                    selectedIconColor = selectedColor,
+                    unselectedIconColor = unselectedColor,
+                    selectedTextColor = selectedColor,
+                    unselectedTextColor = unselectedColor,
+                    // Đặt màu nền khi nhấp chuột (hover/press) trong suốt
+                    // indicatorColor = colorScheme.onSurface.copy(alpha = 0.08f)
                 )
             )
         }
